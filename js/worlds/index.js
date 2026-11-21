@@ -26,5 +26,5 @@ export function nextWorld(id) {
 
 /** Bijv. "1 · 2 · 5 · 10" */
 export function tablesLabel(world) {
-  return world.tables.join(' · ');
+  return world.tablesText || world.tables.join(' · ');
 }

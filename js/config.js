@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.7.0 · stap 3c',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.8.0 · stap 3d',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -130,6 +130,22 @@ export const CONFIG = {
     haloRadius: 120,         // zachte gloed rond de vogel (px)
     stars: 110,
     fireflies: 14
+  },
+
+  // ---------------------------------------------------------------
+  // Stap 3d — De Meeuwen-race
+  // ---------------------------------------------------------------
+  race: {
+    fastGain: 1.5,           // snel goed (Turbo) = windstoot: zoveel vleugellengtes vooruit
+    correctGain: 0.25,       // goed (niet snel)
+    slowLoss: -0.5,          // goed maar heel traag (> 5 s): Karel loopt in
+    wrongLoss: -1,           // fout of geen ring
+    streetLength: 8,         // zoveel voorsprong = gewonnen op een straatlengte
+    pxPerLength: 26,         // afstand op het scherm per vleugellengte
+    karelStartOffset: 110,   // Karel begint net vóór de vogel (hij is eigenwijs)
+    bubbleTime: 2.8,         // hoe lang een tekstballon blijft staan (s)
+    idleMin: 7,              // tussendoor-praatjes elke 7 tot 12 seconden
+    idleMax: 12
   },
 
   render: {

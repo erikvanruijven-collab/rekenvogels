@@ -431,6 +431,7 @@ export class Renderer {
     this.drawMidHills(distance);
     this.drawCloudLayer(this.cloudLayers[2], distance);
     this.drawSpeedLines();
+    if (this.effects && this.effects.drawBehind) this.effects.drawBehind(ctx, this.viewWidth, this.height);
     this.drawFrontHills(distance);
 
     // Ringen: achterkant + getallen -> vogel -> voorkant

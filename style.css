@@ -663,6 +663,22 @@ body {
   animation: pulse 1.2s ease-in-out 3;
 }
 
+.round-race {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff1c9;
+  font-size: 19px;
+  font-weight: bold;
+  color: #7a4d00;
+}
+
+.round-race.lost {
+  background: #eef3f9;
+  color: #3d4d68;
+  font-size: 17px;
+}
+
 .round-unlock.hint {
   background: #eef3f9;
   color: #4a5a75;

@@ -67,7 +67,7 @@ export function saveProfile(profile) {
 // =====================================================================
 
 function emptyWorldProgress() {
-  return { unlocked: [FIRST_WORLD], best: {} };
+  return { unlocked: [FIRST_WORLD], best: {}, race: null };
 }
 
 let worldProgress = loadWorldProgress();
@@ -82,7 +82,11 @@ function loadWorldProgress() {
       ? data.unlocked.filter((id) => validIds.includes(id))
       : [];
     if (!unlocked.includes(FIRST_WORLD)) unlocked.unshift(FIRST_WORLD);
-    return { unlocked, best: data.best && typeof data.best === 'object' ? data.best : {} };
+    return {
+      unlocked,
+      best: data.best && typeof data.best === 'object' ? data.best : {},
+      race: data.race && typeof data.race === 'object' ? data.race : null
+    };
   } catch (error) {
     console.warn('Wereld-voortgang kon niet worden geladen:', error);
     return emptyWorldProgress();
@@ -141,6 +145,23 @@ export function recordWorldResult(worldId, summary) {
 
   saveWorldProgress();
   return { stars, newBest, unlockedWorld };
+}
+
+/**
+ * Uitslag van de Meeuwen-race bewaren (voor de badge "Karel Verslagen").
+ * @returns {{bestLead:number, firstWin:boolean, firstStreet:boolean}}
+ */
+export function recordRaceResult(race) {
+  const previous = worldProgress.race || { bestLead: null, wins: 0, streetWins: 0 };
+  const firstWin = race.won && previous.wins === 0;
+  const firstStreet = race.street && previous.streetWins === 0;
+  worldProgress.race = {
+    bestLead: previous.bestLead === null ? race.lead : Math.max(previous.bestLead, race.lead),
+    wins: previous.wins + (race.won ? 1 : 0),
+    streetWins: previous.streetWins + (race.street ? 1 : 0)
+  };
+  saveWorldProgress();
+  return { bestLead: worldProgress.race.bestLead, firstWin, firstStreet };
 }
 
 /** Testknop in het tandwiel-paneel: alle werelden open. */

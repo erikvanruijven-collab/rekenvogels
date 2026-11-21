@@ -33,6 +33,7 @@ import {
   isWorldUnlocked,
   bestResult,
   recordWorldResult,
+  recordRaceResult,
   unlockAllWorlds,
   resetGameProgress
 } from './progress.js';
@@ -401,7 +402,7 @@ function startGame(world = currentWorld) {
   tryFullscreenLandscape();
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
-  math.startRound(world.tables, world.questionMode || 'normal');
+  math.startRound(world.tables, world.questionMode || 'normal', world.mix || null);
   stopEffects();
   if (world.createEffects) {
     currentEffects = world.createEffects({ physics, renderer, audio });
@@ -428,7 +429,12 @@ function formatSeconds(value) {
 function endFlight() {
   const summary = math.finishRound();
   const result = recordWorldResult(currentWorld.id, summary);
-  game.pending = { summary, result };
+  let race = null;
+  if (currentEffects && currentEffects.summary) {
+    race = currentEffects.summary();
+    race.record = recordRaceResult(race);
+  }
+  game.pending = { summary, result, race };
   stopEffects();
   game.question = null;
   physics.clearColumns();
@@ -447,10 +453,10 @@ function finishDive(bonus) {
   audio.setDiveWind(false);
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
-  showRoundOverlay(game.pending.summary, game.pending.result, bonus);
+  showRoundOverlay(game.pending.summary, game.pending.result, bonus, game.pending.race);
 }
 
-function showRoundOverlay(summary, result, bonus) {
+function showRoundOverlay(summary, result, bonus, race = null) {
   game.state = 'roundEnd';
   game.roundEndShownAt = performance.now();
   activePointers.clear();
@@ -481,6 +487,26 @@ function showRoundOverlay(summary, result, bonus) {
     unlockLine.classList.add('hint');
   } else {
     unlockLine.classList.add('hidden');
+  }
+
+  // Uitslag van de Meeuwen-race
+  const raceLine = $('roundRace');
+  if (race) {
+    const lengths = Math.abs(race.lead).toLocaleString('nl-NL', { maximumFractionDigits: 1 });
+    if (race.street) {
+      raceLine.textContent = `🏆 Karel verslagen op een straatlengte! (${lengths} vleugellengtes voorsprong)`;
+    } else if (race.won) {
+      raceLine.textContent = `🏁 Je won van Karel met ${lengths} vleugellengtes!`;
+    } else if (race.lead === 0) {
+      raceLine.textContent = '🏁 Gelijkspel! Karel en jij kwamen tegelijk over de finish.';
+    } else {
+      raceLine.textContent = `🧢 Karel won met ${lengths} vleugellengtes. Snelle goede antwoorden geven windstoten!`;
+    }
+    raceLine.classList.toggle('lost', !race.won);
+    raceLine.classList.remove('hidden');
+    if (race.won) $('roundTitle').textContent = race.street ? `Kampioen, ${profile.name}!` : `Gewonnen, ${profile.name}!`;
+  } else {
+    raceLine.classList.add('hidden');
   }
 
   const practice = $('roundPractice');
@@ -556,6 +582,9 @@ function handleAnswer(event) {
       message = result.answered ? 'Bijna! Deze komt zo terug.' : 'Kies een ring! Deze komt zo terug.';
     }
   }
+
+  // Werelden kunnen op elk antwoord reageren (bijv. de race tegen Karel)
+  if (currentEffects && currentEffects.onAnswer) currentEffects.onAnswer(result, event);
 
   game.feedback = {
     state: 'answered',

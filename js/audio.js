@@ -465,6 +465,44 @@ export class AudioEngine {
     this.noiseBurst({ when: now, type: 'bandpass', frequency: 300, frequencyEnd: 1100, q: 0.9, volume: 0.17, attack: 0.6, duration: 1.8 });
   }
 
+  // -------------------------------------------------------------------
+  // Stap 3d: De Meeuwen-race
+  // -------------------------------------------------------------------
+
+  /** Meeuwengekrijs van Karel: "kraaa-kra!" */
+  playSquawk() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime + 0.01;
+    for (const [start, length, from, to] of [[0, 0.22, 1150, 820], [0.26, 0.14, 1250, 900]]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(from, now + start);
+      osc.frequency.exponentialRampToValueAtTime(to, now + start + length);
+      const wobble = ctx.createOscillator();
+      wobble.frequency.value = 38;
+      const wobbleGain = ctx.createGain();
+      wobbleGain.gain.value = 60;
+      wobble.connect(wobbleGain);
+      wobbleGain.connect(osc.frequency);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1600;
+      filter.Q.value = 1.4;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.13, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + length);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.master);
+      osc.start(now + start);
+      wobble.start(now + start);
+      osc.stop(now + start + length + 0.02);
+      wobble.stop(now + start + length + 0.02);
+    }
+  }
+
   /** Zet geluid aan/uit en onthoud de keuze. Geeft de nieuwe toestand terug. */
   toggleMute() {
     this.setMuted(!this.muted);

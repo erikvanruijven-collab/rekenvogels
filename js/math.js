@@ -194,9 +194,10 @@ export class MathEngine {
    * @param {number[]} tables  tafels van deze wereld
    * @param {string} mode      'normal' (som -> uitkomst) of 'reverse' (uitkomst -> som)
    */
-  startRound(tables, mode = 'normal') {
+  startRound(tables, mode = 'normal', mix = null) {
     this.tables = tables.slice();
     this.mode = mode;
+    this.mix = mix;          // { share, tables } voor De Meeuwen-race, anders null
     this.repeatQueue = [];
     this.recentKeys = [];
     this.round = {
@@ -226,13 +227,29 @@ export class MathEngine {
     return Math.max(0.3, weight);
   }
 
+  /**
+   * Gewicht in de mix (De Meeuwen-race): sommen die al eens haperden
+   * komen veel vaker langs; nog nooit geziene sommen tellen gewoon mee.
+   */
+  mixWeight(table, times) {
+    const stats = this.progress.facts[factKey(table, times)];
+    if (!stats) return 1;
+    const struggling = stats.wrong > 0
+      || (stats.avgTime !== null && stats.avgTime > CONFIG.math.masteredTime);
+    const weight = this.factWeight(table, times);
+    return struggling ? weight * weight : weight * 0.5;
+  }
+
   pickNewFact() {
     const candidates = [];
-    for (const table of this.tables) {
+    const useMix = this.mix && Math.random() < this.mix.share;
+    const tables = useMix ? this.mix.tables : this.tables;
+    for (const table of tables) {
       for (const times of CONFIG.math.multipliers) {
         const key = factKey(table, times);
         if (this.recentKeys.includes(key)) continue;
-        candidates.push({ table, times, weight: this.factWeight(table, times) });
+        const weight = useMix ? this.mixWeight(table, times) : this.factWeight(table, times);
+        candidates.push({ table, times, weight });
       }
     }
     const total = candidates.reduce((sum, c) => sum + c.weight, 0);
