@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.6.0 · stap 3b',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.7.0 · stap 3c',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -118,6 +118,18 @@ export const CONFIG = {
     shockSink: 380,          // hoogteverlies bij een schok (px/s naar beneden)
     shockSpeedFactor: 0.8,   // snelheid x deze factor bij een schok
     sootTime: 4              // zo lang (s) zit er roet op de vogel
+  },
+
+  // ---------------------------------------------------------------
+  // Stap 3c — De Nachtvlucht
+  // ---------------------------------------------------------------
+  night: {
+    darkness: 0.62,          // hoe donker het is (0 = niet, 1 = pikdonker)
+    beamLength: 560,         // lengte van de lichtbundel van het koplampje (px)
+    beamSpread: 0.33,        // halve breedte van de bundel (radialen)
+    haloRadius: 120,         // zachte gloed rond de vogel (px)
+    stars: 110,
+    fireflies: 14
   },
 
   render: {

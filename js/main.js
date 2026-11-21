@@ -401,7 +401,7 @@ function startGame(world = currentWorld) {
   tryFullscreenLandscape();
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
-  math.startRound(world.tables);
+  math.startRound(world.tables, world.questionMode || 'normal');
   stopEffects();
   if (world.createEffects) {
     currentEffects = world.createEffects({ physics, renderer, audio });
@@ -559,8 +559,7 @@ function handleAnswer(event) {
 
   game.feedback = {
     state: 'answered',
-    text: question.text,
-    answer: question.answer,
+    solution: question.solution,
     correct: result.correct,
     fast: result.fast,
     message
@@ -594,7 +593,7 @@ function questionForHud() {
     const column = physics.columns.find((c) => c.id === game.columnId);
     return {
       state: 'asking',
-      text: game.question.text,
+      prompt: game.question.prompt,
       age: column ? column.age : 0
     };
   }

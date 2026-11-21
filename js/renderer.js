@@ -15,7 +15,7 @@
 
 import { CONFIG } from './config.js';
 import { groundY } from './physics.js';
-import { drawBirdBody, DEFAULT_BIRD } from './birds.js';
+import { drawBirdBody, drawHeadlamp, DEFAULT_BIRD } from './birds.js';
 import { drawBolt } from './fx.js';
 
 const TWO_PI = Math.PI * 2;
@@ -437,8 +437,11 @@ export class Renderer {
     for (const column of physics.columns) {
       for (const ring of column.rings) this.drawRingHalf(ring, column.x, false);
     }
-    for (const column of physics.columns) {
-      for (const ring of column.rings) this.drawRingLabel(ring, column.x);
+    const labelsOnTop = Boolean(this.effects && this.effects.labelsOnTop);
+    if (!labelsOnTop) {
+      for (const column of physics.columns) {
+        for (const ring of column.rings) this.drawRingLabel(ring, column.x);
+      }
     }
     this.drawTrail();
     this.drawBird(physics.bird);
@@ -449,6 +452,13 @@ export class Renderer {
     this.drawParticles();
     for (const bolt of this.bolts) drawBolt(ctx, bolt.points, 1 - bolt.age / bolt.life);
     if (this.effects && this.effects.drawFront) this.effects.drawFront(ctx, this.viewWidth, this.height);
+    if (labelsOnTop) {
+      // In het donker blijven de getallen altijd goed leesbaar
+      for (const column of physics.columns) {
+        for (const ring of column.rings) this.drawRingLabel(ring, column.x);
+      }
+    }
+    if (this.effects && this.effects.drawOverlay) this.effects.drawOverlay(ctx, this.viewWidth, this.height);
     this.drawFloatTexts();
 
     // HUD zonder shake
@@ -758,7 +768,7 @@ export class Renderer {
     }
   }
 
-  /** Het antwoord in het midden van de ring. */
+  /** Het antwoord (of de som) in het midden van de ring. */
   drawRingLabel(ring, x) {
     const ctx = this.ctx;
     const { alpha } = this.ringFade(ring);
@@ -766,21 +776,27 @@ export class Renderer {
 
     ctx.save();
     ctx.globalAlpha = alpha;
-    const radius = 31;
+    const long = ring.label.length > 3;          // bijv. "7 × 8" in De Nachtvlucht
+    const size = long ? 27 : ring.label.length >= 3 ? 27 : 33;
+    ctx.font = `bold ${size}px "Trebuchet MS", "Segoe UI", system-ui, sans-serif`;
+
     ctx.fillStyle = ring.state === 'reveal'
       ? 'rgba(220, 255, 225, 0.95)'
       : ring.state === 'wrong'
         ? 'rgba(255, 225, 225, 0.95)'
         : 'rgba(255, 255, 255, 0.92)';
-    ctx.beginPath();
-    ctx.arc(x, ring.y, radius, 0, TWO_PI);
+    if (long) {
+      const width = ctx.measureText(ring.label).width + 26;
+      this.roundRect(x - width / 2, ring.y - 24, width, 48, 24);
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, ring.y, 31, 0, TWO_PI);
+    }
     ctx.fill();
     ctx.strokeStyle = ring.state === 'reveal' ? '#2f9e4a' : 'rgba(40, 90, 140, 0.35)';
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    const size = ring.label.length >= 3 ? 27 : 33;
-    ctx.font = `bold ${size}px "Trebuchet MS", "Segoe UI", system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#21324f';
@@ -849,6 +865,9 @@ export class Renderer {
       diving: bird.diving,
       turbo: bird.turboTime > 0
     });
+
+    // Koplampje (De Nachtvlucht)
+    if (this.effects && this.effects.headlamp) drawHeadlamp(ctx, this.birdId);
 
     // Roetvlekken na een onweersschok
     if (bird.soot > 0) {
@@ -975,16 +994,17 @@ export class Renderer {
     if (q) {
       const m = CONFIG.math;
       const cx = this.viewWidth / 2;
-      const boxW = 330;
+      ctx.font = `bold 50px ${font}`;
+      const boxW = Math.max(330, ctx.measureText(q.state === 'asking' ? q.prompt : q.solution).width + 60);
       const boxH = q.state === 'asking' ? 96 : 84;
       const boxY = 18;
 
       let fill = 'rgba(255, 255, 255, 0.92)';
       let border = 'rgba(42, 58, 85, 0.15)';
-      let text = `${q.text} = ?`;
+      let text = q.prompt;
       let textColor = '#21324f';
       if (q.state === 'answered') {
-        text = `${q.text} = ${q.answer}`;
+        text = q.solution;
         if (q.correct) {
           fill = q.fast ? 'rgba(255, 236, 170, 0.96)' : 'rgba(220, 250, 225, 0.96)';
           border = q.fast ? '#ff9f1c' : '#3fb85a';

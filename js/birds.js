@@ -398,24 +398,57 @@ export const BIRDS = {
     id: 'valk',
     name: 'Slechtvalk',
     description: 'Strak en razendsnel',
+    lamp: { x: 26, y: -24 },     // plek van het koplampje (De Nachtvlucht)
     draw: drawFalcon
   },
   dodo: {
     id: 'dodo',
     name: 'Dodo',
     description: 'Klunzig, met vliegbril',
+    lamp: { x: 20, y: -31 },
     draw: drawDodo
   },
   pinguin: {
     id: 'pinguin',
     name: 'Pinguïn',
     description: 'Vliegt op een jetpack',
+    lamp: { x: 25, y: -26 },
     draw: drawPenguin
   }
 };
 
 export const BIRD_ORDER = ['valk', 'dodo', 'pinguin'];
 export const DEFAULT_BIRD = 'valk';
+
+/** Waar het koplampje zit (lokale coördinaten van de vogel). */
+export function lampPosition(birdId) {
+  const bird = BIRDS[birdId] || BIRDS[DEFAULT_BIRD];
+  return bird.lamp;
+}
+
+/** Koplampje met hoofdband (De Nachtvlucht). */
+export function drawHeadlamp(ctx, birdId) {
+  const { x, y } = lampPosition(birdId);
+  // hoofdband
+  ctx.strokeStyle = '#3b3f4a';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(x - 6, y + 12, 13, Math.PI * 1.15, Math.PI * 1.9);
+  ctx.stroke();
+  // lampje
+  ctx.fillStyle = '#4a4f5c';
+  ctx.beginPath();
+  ctx.ellipse(x, y, 6, 5, 0, 0, TWO_PI);
+  ctx.fill();
+  ctx.fillStyle = '#fff6b0';
+  ctx.beginPath();
+  ctx.ellipse(x + 3, y, 3, 3.6, 0, 0, TWO_PI);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 246, 176, 0.35)';
+  ctx.beginPath();
+  ctx.arc(x + 4, y, 8, 0, TWO_PI);
+  ctx.fill();
+}
 
 /** Tekent het lijf van de gekozen vogel (positie en hoek regelt de aanroeper). */
 export function drawBirdBody(ctx, birdId, pose) {

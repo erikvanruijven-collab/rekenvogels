@@ -75,6 +75,55 @@ export function makeDistractors(table, times) {
   return shuffle(closest).slice(0, 2);
 }
 
+/** Bijv. "7 × 8" (vermenigvuldiger × tafel, zoals in de rest van de game). */
+export function sumLabel(times, table) {
+  return `${times} × ${table}`;
+}
+
+/**
+ * Afleiders voor OMGEKEERDE sommen (De Nachtvlucht): bovenin staat de
+ * uitkomst, in de ringen staan sommen. De foute sommen liggen dicht bij
+ * het goede antwoord (7×8=56 -> 6×9=54, 7×7=49...), maar hebben NOOIT
+ * dezelfde uitkomst: 3×8 en 4×6 zijn allebei 24, dus die komen nooit
+ * samen in één kolom. Ook de omgedraaide som (8×7) valt daardoor af.
+ * @returns {Array<[number, number]>} twee paren [vermenigvuldiger, tafel]
+ */
+export function makeReverseDistractors(table, times) {
+  const answer = table * times;
+  const candidates = [
+    [times, table - 1], [times, table + 1],
+    [times - 1, table], [times + 1, table],
+    [times - 1, table + 1], [times + 1, table - 1],
+    [times - 1, table - 1], [times + 1, table + 1],
+    [times + 2, table - 1], [times - 2, table + 1]
+  ];
+
+  const seenProducts = new Set([answer]);
+  const valid = [];
+  for (const [a, b] of shuffle(candidates)) {
+    if (a < 1 || b < 1 || a > 12 || b > 12) continue;
+    const product = a * b;
+    if (seenProducts.has(product)) continue;   // nooit dezelfde uitkomst als het antwoord of als elkaar
+    seenProducts.add(product);
+    valid.push([a, b]);
+  }
+
+  valid.sort((x, y) => Math.abs(x[0] * x[1] - answer) - Math.abs(y[0] * y[1] - answer));
+  const closest = valid.slice(0, Math.min(4, valid.length));
+
+  // Vangnet voor de kleinste sommen (1×1, 1×2...)
+  let extra = 2;
+  while (closest.length < 2) {
+    const candidate = [times + extra, table];
+    if (!seenProducts.has(candidate[0] * candidate[1])) {
+      seenProducts.add(candidate[0] * candidate[1]);
+      closest.push(candidate);
+    }
+    extra += 1;
+  }
+  return shuffle(closest).slice(0, 2);
+}
+
 export class MathEngine {
   constructor() {
     this.progress = this.loadProgress();
@@ -141,8 +190,13 @@ export class MathEngine {
   // -------------------------------------------------------------------
   // Vlucht (ronde)
   // -------------------------------------------------------------------
-  startRound(tables) {
+  /**
+   * @param {number[]} tables  tafels van deze wereld
+   * @param {string} mode      'normal' (som -> uitkomst) of 'reverse' (uitkomst -> som)
+   */
+  startRound(tables, mode = 'normal') {
     this.tables = tables.slice();
+    this.mode = mode;
     this.repeatQueue = [];
     this.recentKeys = [];
     this.round = {
@@ -219,11 +273,18 @@ export class MathEngine {
 
     // 3. Antwoorden over de drie ringen verdelen. Het goede antwoord
     //    komt liever niet op de hoogte waar de vogel al vliegt.
-    let options = shuffle([answer, ...makeDistractors(table, times)]);
-    let correctSlot = options.indexOf(answer);
+    const text = sumLabel(times, table);
+    const reverse = this.mode === 'reverse';
+    const correctLabel = reverse ? text : String(answer);
+    const labels = reverse
+      ? [correctLabel, ...makeReverseDistractors(table, times).map(([a, b]) => sumLabel(a, b))]
+      : [correctLabel, ...makeDistractors(table, times).map(String)];
+
+    let options = shuffle(labels);
+    let correctSlot = options.indexOf(correctLabel);
     if (correctSlot === currentLane) {
       options = shuffle(options);
-      correctSlot = options.indexOf(answer);
+      correctSlot = options.indexOf(correctLabel);
     }
 
     this.round.asked += 1;
@@ -233,7 +294,10 @@ export class MathEngine {
       times,
       answer,
       key,
-      text: `${times} × ${table}`,
+      text,
+      prompt: reverse ? `? × ? = ${answer}` : `${text} = ?`,   // in de banner tijdens het vragen
+      solution: `${text} = ${answer}`,                         // in de banner na het antwoord
+      reverse,
       options,
       correctSlot,
       isRepeat,
