@@ -63,7 +63,10 @@
 
       <p class="start-controls">👇 Houd vast = duiken &nbsp;·&nbsp; ☁️ Loslaten = zweven &nbsp;·&nbsp; 👆 Tik = omhoog fladderen</p>
       <div class="map-footer">
-        <button id="newGameBtn" class="link-btn" type="button">Nieuw spel</button>
+        <span class="footer-links">
+          <button id="newGameBtn" class="link-btn" type="button">Nieuw spel</button>
+          <button id="parentBtn" class="link-btn" type="button">📊 Voortgang (ouders &amp; leerkrachten)</button>
+        </span>
         <span id="versionLabel" class="version-label"></span>
       </div>
     </div>
@@ -105,6 +108,57 @@
       <div class="bird-actions">
         <button id="badgeClose" class="tune-btn" type="button">🗺️ Terug naar de kaart</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Voortgang: vraag voor volwassenen -->
+  <div id="parentGate" class="hidden">
+    <div class="start-card gate-card">
+      <h2>Voor ouders en leerkrachten</h2>
+      <p>Beantwoord deze vraag om verder te gaan:</p>
+      <p id="gateQuestion" class="gate-question">13 × 17 = ?</p>
+      <input id="gateInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="go" aria-label="Antwoord">
+      <p id="gateError" class="gate-error"></p>
+      <div class="bird-actions">
+        <button id="gateCancel" class="tune-btn" type="button">Terug</button>
+        <button id="gateOk" class="start-tap" type="button">Verder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voortgang voor ouders en leerkrachten -->
+  <div id="parentOverlay" class="hidden">
+    <div class="start-card parent-card">
+      <div class="parent-header">
+        <div>
+          <h1 id="parentTitle">Voortgang</h1>
+          <p class="parent-sub">voor ouders en leerkrachten · gegevens van dit apparaat</p>
+        </div>
+        <div class="parent-buttons">
+          <button id="parentCopy" class="tune-btn" type="button">📋 Kopieer overzicht</button>
+          <button id="parentClose" class="tune-btn primary" type="button">Sluiten</button>
+        </div>
+      </div>
+      <textarea id="parentText" class="parent-text hidden" readonly></textarea>
+
+      <div id="parentTiles" class="parent-tiles"></div>
+
+      <h2>Per tafel</h2>
+      <div id="parentLegend" class="parent-legend"></div>
+      <div id="parentTables" class="parent-tables"></div>
+      <p id="parentDetail" class="parent-detail">Tik op een som voor de details.</p>
+
+      <h2>Deze sommen haperen nog</h2>
+      <div id="parentHard" class="parent-hard"></div>
+
+      <h2>Werelden</h2>
+      <div id="parentWorlds" class="parent-worlds"></div>
+
+      <p class="parent-explain">
+        <strong>Zo lees je het:</strong> <em>beheerst</em> = de laatste keer goed én binnen 2 seconden (of al twee keer snel goed);
+        <em>traag</em> = goed, maar gemiddeld langer dan 2,5 seconden (het kind rekent het nog uit in plaats van het te weten);
+        <em>hapert</em> = de laatste keer fout. Haperende en trage sommen komen in de game vanzelf vaker terug.
+      </p>
     </div>
   </div>
 

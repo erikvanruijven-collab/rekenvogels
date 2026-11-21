@@ -32,6 +32,7 @@ import {
   randomName,
   isWorldUnlocked,
   bestResult,
+  getRaceStats,
   recordWorldResult,
   recordRaceResult,
   unlockAllWorlds,
@@ -47,6 +48,7 @@ import { ITEMS, getItem, drawGearPreview } from './items.js';
 import { WORLDS, FIRST_WORLD, getWorld, nextWorld, tablesLabel } from './worlds/index.js';
 import { GoldenDive } from './minigames/gouden-duik.js';
 import { BadgeTracker, BADGES, KNIGHT_TABLES, knightId, badgeInfo, TOTAL_BADGES } from './badges.js';
+import { ParentScreen } from './parent.js';
 
 // ---------------------------------------------------------------------
 // Opzetten
@@ -103,6 +105,24 @@ const renderer = new Renderer(canvas, currentWorld.colors);
 const math = new MathEngine();
 const goldenDive = new GoldenDive();
 const badges = new BadgeTracker();
+
+// Voortgang voor ouders en leerkrachten (Stap 4d)
+const parentScreen = new ParentScreen({
+  getFacts: () => math.progress.facts,
+  getName: () => profile.name || 'de speler',
+  getFlights: () => math.progress.flights,
+  getBadgeCount: () => badges.count,
+  totalBadges: TOTAL_BADGES,
+  worlds: WORLDS,
+  bestResult,
+  isWorldUnlocked,
+  getRace: () => getRaceStats(),
+  onClose: () => showStartScreen()
+});
+$('parentBtn').addEventListener('click', () => {
+  startOverlay.classList.add('hidden');
+  parentScreen.openGate();
+});
 
 renderer.setBird(profile.birdId);
 renderer.setEquipment(getEquipment());
@@ -934,6 +954,8 @@ mapButton.addEventListener('click', () => {
 // Toetsenbord (handig bij testen op de Surface)
 window.addEventListener('keydown', (event) => {
   if (event.target === nameInput) return;               // spaties in de naam mogen gewoon
+  if (event.target && event.target.tagName === 'INPUT') return;
+  if (!$('parentGate').classList.contains('hidden') || !$('parentOverlay').classList.contains('hidden')) return;
   if (event.code === 'ArrowLeft') arrowLeft = true;
   if (event.code === 'ArrowRight') arrowRight = true;
   if (event.code !== 'Space') return;
@@ -974,7 +996,7 @@ document.addEventListener('visibilitychange', () => {
 
 // Geen scrollen, zoomen, contextmenu of dubbeltik-zoom
 document.addEventListener('touchmove', (event) => {
-  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card, .badge-card');
+  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card, .badge-card, .parent-card');
   if (!scrollable) event.preventDefault();
 }, { passive: false });
 document.addEventListener('gesturestart', (event) => event.preventDefault());

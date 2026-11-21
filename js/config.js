@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.10.0 · stap 4c',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.11.0 · stap 4d',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px

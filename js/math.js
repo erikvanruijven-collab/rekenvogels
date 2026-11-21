@@ -346,7 +346,8 @@ export class MathEngine {
     // Statistiek per som
     const stats = this.getFactStats(question.table, question.times);
     stats.seen += 1;
-    stats.lastFast = correct && fast;   // voor de badge "Tafelridder" 
+    stats.lastFast = correct && fast;   // voor de badge "Tafelridder"
+    stats.lastCorrect = correct;        // voor het voortgangsscherm (hapert de som nog?)
     if (correct) {
       stats.correct += 1;
       if (fast) stats.fast += 1;

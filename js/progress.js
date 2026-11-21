@@ -166,6 +166,11 @@ export function recordRaceResult(race) {
   return { bestLead: worldProgress.race.bestLead, firstWin, firstStreet };
 }
 
+/** Uitslagen tegen Karel (voor het voortgangsscherm), of null. */
+export function getRaceStats() {
+  return worldProgress.race || null;
+}
+
 /** Testknop in het tandwiel-paneel: alle werelden open. */
 export function unlockAllWorlds() {
   worldProgress.unlocked = WORLDS.map((world) => world.id);
