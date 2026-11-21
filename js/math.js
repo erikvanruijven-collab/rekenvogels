@@ -13,6 +13,7 @@
 // =====================================================================
 
 import { CONFIG } from './config.js';
+import { playerKey } from './storage.js';
 
 const MAX_BOX = 5; // Leitner-doosjes: 0 = nieuw/lastig, 5 = geautomatiseerd
 
@@ -139,7 +140,7 @@ export class MathEngine {
   loadProgress() {
     const empty = { feathers: 0, flights: 0, facts: {} };
     try {
-      const raw = localStorage.getItem(CONFIG.storageKeys.progress);
+      const raw = localStorage.getItem(playerKey('progress'));
       if (!raw) return empty;
       const data = JSON.parse(raw);
       return {
@@ -155,7 +156,7 @@ export class MathEngine {
 
   saveProgress() {
     try {
-      localStorage.setItem(CONFIG.storageKeys.progress, JSON.stringify(this.progress));
+      localStorage.setItem(playerKey('progress'), JSON.stringify(this.progress));
     } catch (error) {
       console.warn('Voortgang kon niet worden opgeslagen:', error);
     }
@@ -213,6 +214,7 @@ export class MathEngine {
       correct: 0,
       wrong: 0,
       turbo: 0,
+      nearMiss: 0,
       feathers: 0,
       times: [],
       bestStreak: 0,
@@ -336,9 +338,12 @@ export class MathEngine {
    * @param {number} chosenSlot 0/1/2, of -1 als de vogel geen ring raakte
    * @param {number} time       reactietijd in seconden
    */
-  submitAnswer(question, chosenSlot, time) {
+  submitAnswer(question, chosenSlot, time, nearMiss = false) {
     const m = CONFIG.math;
     const correct = chosenSlot === question.correctSlot;
+    // Net mis: geen ring geraakt, maar wel op weg naar de goede (zie physics.js).
+    // Telt in de statistiek als "weet het"; in het spel blijft het een misser.
+    const knew = correct || nearMiss;
     const answered = chosenSlot >= 0;
     const fast = correct && time <= m.fastThreshold;
     const slow = time > m.slowThreshold;
@@ -347,8 +352,11 @@ export class MathEngine {
     const stats = this.getFactStats(question.table, question.times);
     stats.seen += 1;
     stats.lastFast = correct && fast;   // voor de badge "Tafelridder"
-    stats.lastCorrect = correct;        // voor het voortgangsscherm (hapert de som nog?)
-    if (correct) {
+    stats.lastCorrect = knew;           // voor het voortgangsscherm (hapert de som nog?)
+    if (nearMiss) {
+      stats.nearMiss = (stats.nearMiss || 0) + 1;
+      stats.avgTime = stats.avgTime === null ? time : stats.avgTime * 0.7 + time * 0.3;
+    } else if (correct) {
       stats.correct += 1;
       if (fast) stats.fast += 1;
       // Binnen 2 seconden goed = beheerst: hoger doosje, komt minder vaak langs
@@ -371,6 +379,9 @@ export class MathEngine {
       r.bestStreak = Math.max(r.bestStreak, r.streak);
       feathers = fast ? m.feathersTurbo : m.feathersCorrect;
       if (fast) r.turbo += 1;
+    } else if (nearMiss) {
+      r.nearMiss += 1;
+      r.streak = 0;
     } else {
       r.wrong += 1;
       r.streak = 0;
@@ -379,7 +390,7 @@ export class MathEngine {
     this.progress.feathers += feathers;
 
     // Spaced repetition: fout of traag -> komt terug na 3 à 4 sommen
-    const needsRepeat = !correct || time > m.repeatSlowerThan;
+    const needsRepeat = !knew || time > m.repeatSlowerThan;
     let repeatScheduled = false;
     const alreadyQueued = this.repeatQueue.some((entry) => entry.key === question.key);
     if (needsRepeat && !alreadyQueued) {
@@ -397,7 +408,7 @@ export class MathEngine {
 
     this.saveProgress();
 
-    return { correct, answered, fast, slow, feathers, repeatScheduled, time };
+    return { correct, answered, fast, slow, feathers, repeatScheduled, time, nearMiss: !correct && nearMiss };
   }
 
   /** Samenvatting voor het eindscherm. */
@@ -412,6 +423,7 @@ export class MathEngine {
       asked: r.asked,
       correct: r.correct,
       wrong: r.wrong,
+      nearMiss: r.nearMiss,
       turbo: r.turbo,
       feathers: r.feathers,
       totalFeathers: this.progress.feathers,

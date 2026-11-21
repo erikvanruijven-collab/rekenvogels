@@ -49,6 +49,18 @@ import { WORLDS, FIRST_WORLD, getWorld, nextWorld, tablesLabel } from './worlds/
 import { GoldenDive } from './minigames/gouden-duik.js';
 import { BadgeTracker, BADGES, KNIGHT_TABLES, knightId, badgeInfo, TOTAL_BADGES } from './badges.js';
 import { ParentScreen } from './parent.js';
+import {
+  listPlayers,
+  currentPlayerId,
+  switchPlayer,
+  createPlayer,
+  deletePlayer,
+  readPlayerData,
+  consumeSkipChooser,
+  exportPlayers,
+  importPlayers,
+  MAX_PLAYERS
+} from './storage.js';
 
 // ---------------------------------------------------------------------
 // Opzetten
@@ -95,6 +107,10 @@ const shopAction = $('shopAction');
 const badgeOverlay = $('badgeOverlay');
 const badgesButton = $('badgesBtn');
 const toastArea = $('toastArea');
+const playersOverlay = $('playersOverlay');
+const playersGrid = $('playersGrid');
+const skipChooserOnce = consumeSkipChooser();   // na wisselen van speler: meteen door
+let chooserShownAtBoot = false;
 
 let profile = loadProfile();
 let currentWorld = getWorld(FIRST_WORLD);
@@ -117,6 +133,12 @@ const parentScreen = new ParentScreen({
   bestResult,
   isWorldUnlocked,
   getRace: () => getRaceStats(),
+  listPlayers,
+  currentPlayerId,
+  readPlayerData,
+  deletePlayer,
+  exportPlayers,
+  importPlayers,
   onClose: () => showStartScreen()
 });
 $('parentBtn').addEventListener('click', () => {
@@ -214,18 +236,101 @@ function lockLandscape() {
 // Startscherm met wereldkaart
 // ---------------------------------------------------------------------
 function enterStartState() {
+  if (updateReady) {
+    window.location.reload();   // nieuwe versie klaar: nu laden, op een rustig moment
+    return;
+  }
   stopEffects();
   game.state = 'start';
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
   roundOverlay.classList.add('hidden');
   $('versionLabel').textContent = `versie ${CONFIG.version}`;
-  if (profile.complete) {
+  const showChooser = !chooserShownAtBoot && !skipChooserOnce && listPlayers().length > 1;
+  chooserShownAtBoot = true;
+  if (showChooser) {
+    openPlayers();
+  } else if (profile.complete) {
     showStartScreen();
   } else {
     openBirdScreen(true);
   }
 }
+
+// ---------------------------------------------------------------------
+// Wie gaat er vliegen? (meerdere spelers op één tablet)
+// ---------------------------------------------------------------------
+let playerPreviews = [];   // [{ canvas, birdId, equipment }]
+
+function openPlayers() {
+  startOverlay.classList.add('hidden');
+  birdOverlay.classList.add('hidden');
+  renderPlayers();
+  playersOverlay.classList.remove('hidden');
+}
+
+function renderPlayers() {
+  playersGrid.innerHTML = '';
+  playerPreviews = [];
+  const current = currentPlayerId();
+  for (const player of listPlayers()) {
+    const data = readPlayerData(player.id);
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `player-card${player.id === current ? ' current' : ''}`;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 260;
+    canvas.height = 190;
+    canvas.setAttribute('aria-hidden', 'true');
+    const name = document.createElement('strong');
+    name.textContent = player.name || 'Nieuwe speler';
+    const stats = document.createElement('small');
+    const badgeCount = data.badges ? Object.keys(data.badges).length : 0;
+    const stars = data.worlds && data.worlds.best
+      ? Object.values(data.worlds.best).reduce((sum, best) => sum + (best.stars || 0), 0)
+      : 0;
+    stats.textContent = `⭐ ${stars}  ·  🏅 ${badgeCount}`;
+    card.appendChild(canvas);
+    card.appendChild(name);
+    card.appendChild(stats);
+
+    card.addEventListener('click', () => {
+      audio.unlock();
+      if (player.id === currentPlayerId()) {
+        playersOverlay.classList.add('hidden');
+        if (profile.complete) showStartScreen();
+        else openBirdScreen(true);
+      } else {
+        switchPlayer(player.id);   // laadt de game opnieuw met deze speler
+      }
+    });
+    playersGrid.appendChild(card);
+    playerPreviews.push({
+      canvas,
+      birdId: (data.profile && data.profile.birdId) || player.birdId || 'valk',
+      equipment: (data.items && data.items.equipped) || {}
+    });
+  }
+
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'player-card new-player';
+  const plus = document.createElement('span');
+  plus.textContent = '+';
+  add.appendChild(plus);
+  add.appendChild(document.createTextNode('Nieuwe speler'));
+  add.addEventListener('click', () => {
+    if (listPlayers().length >= MAX_PLAYERS) {
+      $('playersMessage').textContent = `Er kunnen maximaal ${MAX_PLAYERS} spelers op één tablet.`;
+      return;
+    }
+    createPlayer();   // laadt opnieuw; de nieuwe speler kiest dan een vogel en naam
+  });
+  playersGrid.appendChild(add);
+}
+
+$('playersBtn').addEventListener('click', openPlayers);
 
 function showStartScreen() {
   startFeathers.textContent = String(math.totalFeathers);
@@ -368,7 +473,9 @@ function openBirdScreen(firstTime) {
   }
   nameInput.value = profile.name;
   birdTitle.textContent = firstTime ? 'Kies jouw vogel!' : 'Jouw vogel';
-  birdCancelButton.classList.toggle('hidden', firstTime);
+  // Nieuwe speler per ongeluk aangemaakt? Dan mag je terug (als er andere spelers zijn).
+  const canGoBack = !firstTime || listPlayers().length > 1;
+  birdCancelButton.classList.toggle('hidden', !canGoBack);
   startOverlay.classList.add('hidden');
   birdOverlay.classList.remove('hidden');
   birdOverlay.classList.remove('typing');
@@ -393,6 +500,11 @@ function finishBirdScreen() {
 }
 
 function cancelBirdScreen() {
+  if (!profile.complete) {
+    // Lege nieuwe speler weer weghalen en terug naar de vorige speler
+    deletePlayer(currentPlayerId());
+    return;
+  }
   renderer.setBird(profile.birdId);
   closeKeyboard();
   showStartScreen();
@@ -436,6 +548,11 @@ function drawPreviews(seconds) {
   if (!shopOverlay.classList.contains('hidden')) {
     drawGearPreview(shopCanvas, profile.birdId, seconds, shopPreviewEquipment(), true);
   }
+  if (!playersOverlay.classList.contains('hidden')) {
+    playerPreviews.forEach((preview, index) => {
+      drawGearPreview(preview.canvas, preview.birdId, seconds + index * 0.6, preview.equipment);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -466,7 +583,7 @@ function nextToast() {
   const text = document.createElement('span');
   const small = document.createElement('span');
   small.className = 'toast-small';
-  small.textContent = 'Nieuwe badge!';
+  small.textContent = badge.small || 'Nieuwe badge!';
   const name = document.createElement('span');
   name.className = 'toast-name';
   name.textContent = badge.name;
@@ -785,6 +902,16 @@ function showRoundOverlay(summary, result, bonus, race = null) {
     raceLine.classList.add('hidden');
   }
 
+  const nearLine = $('roundNear');
+  if (summary.nearMiss > 0) {
+    nearLine.textContent = summary.nearMiss === 1
+      ? '👍 1× net naast de goede ring: die som wist je wel!'
+      : `👍 ${summary.nearMiss}× net naast de goede ring: die sommen wist je wel!`;
+    nearLine.classList.remove('hidden');
+  } else {
+    nearLine.classList.add('hidden');
+  }
+
   const practice = $('roundPractice');
   if (summary.practice.length > 0) {
     practice.textContent = `Nog even oefenen: ${summary.practice.slice(0, 6).join('   ·   ')}`;
@@ -819,7 +946,7 @@ function handleAnswer(event) {
   const question = game.question;
   if (!question || event.columnId !== game.columnId) return;
 
-  const result = math.submitAnswer(question, event.chosenSlot, event.reactionTime);
+  const result = math.submitAnswer(question, event.chosenSlot, event.reactionTime, event.nearMiss);
   showBadges(badges.onAnswer(result, question, math.progress.facts));
   physics.markColumn(event.columnId, event.chosenSlot, event.correctSlot);
   const bird = physics.bird;
@@ -847,6 +974,11 @@ function handleAnswer(event) {
       renderer.floatText('de wind zakt weg…', bird.x + 40, bird.y + 50, '#e8eef7', 24);
       message = 'Goed! Maar je twijfelde lang…';
     }
+  } else if (result.nearMiss) {
+    // Net mis: het kind wist het wel, alleen het mikken ging mis. Geen straf.
+    renderer.floatText('net mis!', bird.x + 50, bird.y - 45, '#ffffff', 26);
+    audio.playRingTick();
+    message = Math.random() < 0.5 ? 'Net mis! Je wist hem wel 👍' : `Bijna, ${profile.name}! Goed gedacht 👍`;
   } else {
     // Werelden kunnen een eigen "fout"-effect hebben (bijv. onweersschok)
     const handled = currentEffects && currentEffects.onWrongAnswer
@@ -963,6 +1095,7 @@ window.addEventListener('keydown', (event) => {
   if (!confirmOverlay.classList.contains('hidden')) return;
   if (!shopOverlay.classList.contains('hidden')) return;
   if (!badgeOverlay.classList.contains('hidden')) return;
+  if (!playersOverlay.classList.contains('hidden')) return;
   event.preventDefault();
   if (game.state === 'start') {
     startGame(currentWorld);
@@ -996,7 +1129,7 @@ document.addEventListener('visibilitychange', () => {
 
 // Geen scrollen, zoomen, contextmenu of dubbeltik-zoom
 document.addEventListener('touchmove', (event) => {
-  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card, .badge-card, .parent-card');
+  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card, .badge-card, .parent-card, .players-card');
   if (!scrollable) event.preventDefault();
 }, { passive: false });
 document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -1208,5 +1341,37 @@ function frame(now) {
   });
 }
 
+// ---------------------------------------------------------------------
+// Stap 5: offline spelen en automatisch updaten (service worker)
+// ---------------------------------------------------------------------
+let updateReady = false;
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  // Alleen online (https). Bij testen via Live Server niet, anders blijven
+  // oude bestanden hangen tijdens het bouwen. Testen kan met ?sw=1.
+  const allowed = location.protocol === 'https:' || location.search.includes('sw=1');
+  if (!allowed) return;
+
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.register('./service-worker.js').then((registration) => {
+    // Kijk ook op nieuwe versies als de app weer naar voren komt
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) registration.update().catch(() => {});
+    });
+  }).catch((error) => console.warn('Service worker niet geregistreerd:', error));
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;   // allereerste installatie: niets herladen
+    updateReady = true;
+    // Niet midden in een vlucht: op de kaart meteen, anders bij terugkeer
+    if (game.state === 'start' && !startOverlay.classList.contains('hidden')) {
+      showBadges([{ icon: '✨', small: 'Update', name: 'Nieuwe versie! Even laden…' }]);
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  });
+}
+
+registerServiceWorker();
 enterStartState();
 requestAnimationFrame(frame);

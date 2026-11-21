@@ -10,6 +10,7 @@
 // =====================================================================
 
 import { CONFIG } from './config.js';
+import { playerKey, updateCurrentPlayer } from './storage.js';
 import { BIRDS, DEFAULT_BIRD } from './birds.js';
 import { WORLDS, FIRST_WORLD, nextWorld } from './worlds/index.js';
 import { ITEMS, SLOTS, getItem } from './items.js';
@@ -39,7 +40,7 @@ export function randomName(current = '') {
 export function loadProfile() {
   const empty = { birdId: DEFAULT_BIRD, name: '', complete: false };
   try {
-    const raw = localStorage.getItem(CONFIG.storageKeys.profile);
+    const raw = localStorage.getItem(playerKey('profile'));
     if (!raw) return empty;
     const data = JSON.parse(raw);
     const birdId = BIRDS[data.birdId] ? data.birdId : DEFAULT_BIRD;
@@ -52,8 +53,9 @@ export function loadProfile() {
 }
 
 export function saveProfile(profile) {
+  updateCurrentPlayer({ name: sanitizeName(profile.name), birdId: profile.birdId });
   try {
-    localStorage.setItem(CONFIG.storageKeys.profile, JSON.stringify({
+    localStorage.setItem(playerKey('profile'), JSON.stringify({
       birdId: profile.birdId,
       name: sanitizeName(profile.name)
     }));
@@ -76,7 +78,7 @@ let worldProgress = loadWorldProgress();
 
 function loadWorldProgress() {
   try {
-    const raw = localStorage.getItem(CONFIG.storageKeys.worlds);
+    const raw = localStorage.getItem(playerKey('worlds'));
     if (!raw) return emptyWorldProgress();
     const data = JSON.parse(raw);
     const validIds = WORLDS.map((world) => world.id);
@@ -97,7 +99,7 @@ function loadWorldProgress() {
 
 function saveWorldProgress() {
   try {
-    localStorage.setItem(CONFIG.storageKeys.worlds, JSON.stringify(worldProgress));
+    localStorage.setItem(playerKey('worlds'), JSON.stringify(worldProgress));
   } catch (error) {
     console.warn('Wereld-voortgang kon niet worden opgeslagen:', error);
   }
@@ -185,9 +187,9 @@ export function resetGameProgress() {
   worldProgress = emptyWorldProgress();
   items = emptyItems();
   try {
-    localStorage.removeItem(CONFIG.storageKeys.worlds);
-    localStorage.removeItem(CONFIG.storageKeys.progress);
-    localStorage.removeItem(CONFIG.storageKeys.items);
+    localStorage.removeItem(playerKey('worlds'));
+    localStorage.removeItem(playerKey('progress'));
+    localStorage.removeItem(playerKey('items'));
   } catch (error) {
     console.warn('Voortgang kon niet worden gewist:', error);
   }
@@ -205,7 +207,7 @@ let items = loadItems();
 
 function loadItems() {
   try {
-    const raw = localStorage.getItem(CONFIG.storageKeys.items);
+    const raw = localStorage.getItem(playerKey('items'));
     if (!raw) return emptyItems();
     const data = JSON.parse(raw);
     const validIds = ITEMS.map((item) => item.id);
@@ -225,7 +227,7 @@ function loadItems() {
 
 function saveItems() {
   try {
-    localStorage.setItem(CONFIG.storageKeys.items, JSON.stringify(items));
+    localStorage.setItem(playerKey('items'), JSON.stringify(items));
   } catch (error) {
     console.warn('Spullen konden niet worden opgeslagen:', error);
   }

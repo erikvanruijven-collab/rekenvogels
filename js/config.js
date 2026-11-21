@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.11.0 · stap 4d',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '1.0.1 · bijna-missers',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -52,6 +52,7 @@ export const CONFIG = {
     radius: 60,              // straal van een ring (px)
     rows: [0.255, 0.485, 0.715],// verticale posities (deel van de schermhoogte): boven, midden, onder
     hitTolerance: 0.9,       // hoe ruim de ring is (1 = precies de straal)
+    nearMissTolerance: 1.6,  // "net mis": naast de goede ring, maar binnen 1,6 x de straal
     finalApproach: 200,      // laatste stuk (px) waarin de ringen op volle snelheid aankomen
     blendZone: 120           // overgangszone tussen "aandrijven" en "volle snelheid"
   },
@@ -169,14 +170,11 @@ export const CONFIG = {
     masterVolume: 0.8
   },
 
+  // Tuning en geluid gelden voor de hele tablet. De gegevens per speler
+  // (voortgang, werelden, spullen, badges) staan in storage.js.
   storageKeys: {
     tuning: 'rekenvogels.tuning.v1',
-    muted: 'rekenvogels.muted.v1',
-    progress: 'rekenvogels.progress.v1',
-    profile: 'rekenvogels.profile.v1',
-    worlds: 'rekenvogels.worlds.v1',
-    items: 'rekenvogels.items.v1',
-    badges: 'rekenvogels.badges.v1'
+    muted: 'rekenvogels.muted.v1'
   }
 };
 

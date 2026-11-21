@@ -4,6 +4,8 @@
 // Een scherm voor volwassenen (achter een eenvoudige rekenvraag die een
 // kind van 9 nog niet uit het hoofd weet) met:
 //  - een overzicht: vluchten, sommen, % goed, gemiddelde tijd, beheerst
+//  - "weet het" = goed + net mis (net naast de goede ring gevlogen: het
+//    kind wist het antwoord, alleen het mikken ging mis)
 //  - per tafel (1 t/m 12) een rij met de 10 sommen in kleur:
 //      grijs = nog niet geoefend · rood = hapert (laatste keer fout)
 //      oranje = goed maar traag · lichtgroen = goed · donkergroen = beheerst
@@ -11,6 +13,9 @@
 //  - de lastigste sommen op een rij
 //  - sterren per wereld en de uitslag tegen Karel
 //  - "Kopieer overzicht": alles als tekst, om te mailen of te bewaren
+//  - Stap 5: alle spelers op deze tablet (klasoverzicht), en spelers
+//    exporteren/importeren als bestand (bijv. naar een andere tablet)
+//    of verwijderen
 //
 // Alle gegevens komen uit wat de game al bijhoudt (localStorage op dit
 // apparaat). Er gaat niets het internet op.
@@ -101,6 +106,7 @@ export function hardestFacts(facts, limit = 8) {
 export function overview(facts) {
   let seen = 0;
   let correct = 0;
+  let nearMiss = 0;
   let timeSum = 0;
   let timeWeight = 0;
   let mastered = 0;
@@ -112,6 +118,7 @@ export function overview(facts) {
       practiced += 1;
       seen += stats.seen;
       correct += stats.correct;
+      nearMiss += stats.nearMiss || 0;
       if (stats.avgTime !== null && stats.correct) {
         timeSum += stats.avgTime * stats.correct;
         timeWeight += stats.correct;
@@ -122,6 +129,8 @@ export function overview(facts) {
   return {
     answered: seen,
     correctPercent: percent(correct, seen),
+    nearMiss,
+    knowPercent: percent(correct + nearMiss, seen),
     averageTime: timeWeight ? timeSum / timeWeight : null,
     mastered,
     practiced,
@@ -135,9 +144,10 @@ export function factDetail(table, times, stats) {
   if (!stats || !stats.seen) return `${sum} — nog niet geoefend.`;
   const parts = [
     `${stats.seen}× gezien`,
-    `${stats.correct}× goed`,
-    `${stats.wrong}× fout`
+    `${stats.correct}× goed`
   ];
+  if (stats.nearMiss) parts.push(`${stats.nearMiss}× net mis (wist het wel)`);
+  parts.push(`${stats.wrong}× fout`);
   if (stats.avgTime !== null) parts.push(`gemiddeld ${formatTime(stats.avgTime)}`);
   return `${sum} — ${parts.join(', ')}. Oordeel: ${LEVELS[classifyFact(stats)].label.toLowerCase()}.`;
 }
@@ -171,6 +181,139 @@ export class ParentScreen {
     });
     document.getElementById('parentClose').addEventListener('click', () => this.close());
     document.getElementById('parentCopy').addEventListener('click', () => this.copy());
+
+    // Stap 5: spelers exporteren / importeren
+    document.getElementById('exportAllBtn').addEventListener('click', () => {
+      const ids = this.deps.listPlayers().map((player) => player.id);
+      this.share(this.deps.exportPlayers(ids), 'alle-spelers');
+    });
+    document.getElementById('importFile').addEventListener('change', (event) => this.importFile(event));
+  }
+
+  // -------------------------------------------------------------------
+  // Spelers op deze tablet (klasoverzicht)
+  // -------------------------------------------------------------------
+  renderPlayers() {
+    const d = this.deps;
+    const box = document.getElementById('parentPlayers');
+    box.innerHTML = '';
+    const table = document.createElement('table');
+    const head = document.createElement('tr');
+    for (const title of ['Speler', 'Vluchten', 'Sommen', 'Weet het', 'Net mis', 'Beheerst', 'Badges', 'Hapert vooral', '']) {
+      const th = document.createElement('th');
+      th.textContent = title;
+      head.appendChild(th);
+    }
+    table.appendChild(head);
+
+    const current = d.currentPlayerId();
+    for (const player of d.listPlayers()) {
+      const data = d.readPlayerData(player.id);
+      const facts = (data.progress && data.progress.facts) || {};
+      const info = overview(facts);
+      const hard = hardestFacts(facts, 1)[0];
+      const row = document.createElement('tr');
+      if (player.id === current) row.className = 'current';
+      const cells = [
+        `${player.name || '(nog geen naam)'}${player.id === current ? ' ← speelt nu' : ''}`,
+        String((data.progress && data.progress.flights) || 0),
+        String(info.answered),
+        info.answered ? `${info.knowPercent}%` : '–',
+        String(info.nearMiss),
+        `${info.mastered}/${info.totalFacts}`,
+        String(data.badges ? Object.keys(data.badges).length : 0),
+        hard ? `${hard.times} × ${hard.table}` : '–'
+      ];
+      for (const text of cells) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        row.appendChild(td);
+      }
+
+      const actions = document.createElement('td');
+      const exportButton = document.createElement('button');
+      exportButton.type = 'button';
+      exportButton.className = 'row-btn';
+      exportButton.textContent = '⬇️ Exporteer';
+      exportButton.addEventListener('click', () => this.share(d.exportPlayers([player.id]), player.name || 'speler'));
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'row-btn danger';
+      deleteButton.textContent = '🗑 Verwijder';
+      let armed = false;
+      deleteButton.addEventListener('click', () => {
+        // Twee keer tikken: eerst "Zeker weten?"
+        if (!armed) {
+          armed = true;
+          deleteButton.textContent = 'Zeker weten?';
+          deleteButton.classList.add('confirm');
+          setTimeout(() => {
+            armed = false;
+            deleteButton.textContent = '🗑 Verwijder';
+            deleteButton.classList.remove('confirm');
+          }, 4000);
+          return;
+        }
+        d.deletePlayer(player.id);   // de huidige speler verwijderen laadt de game opnieuw
+        this.render();
+      });
+      actions.appendChild(exportButton);
+      actions.appendChild(deleteButton);
+      row.appendChild(actions);
+      table.appendChild(row);
+    }
+    box.appendChild(table);
+  }
+
+  /** Exportbestand delen (iPad/Android: deelmenu) of downloaden. */
+  async share(payload, label) {
+    const message = document.getElementById('parentPlayersMessage');
+    const date = new Date().toISOString().slice(0, 10);
+    const safeLabel = String(label).replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+    const filename = `rekenvogels-${safeLabel}-${date}.json`;
+    const json = JSON.stringify(payload, null, 1);
+    const file = new File([json], filename, { type: 'application/json' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Rekenvogels-spelers' });
+        message.textContent = `✓ ${filename} gedeeld. Bewaar het bijv. in Bestanden of stuur het door.`;
+        return;
+      }
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;   // delen geannuleerd
+    }
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    message.textContent = `✓ ${filename} gedownload.`;
+  }
+
+  /** Spelers uit een bestand toevoegen. */
+  importFile(event) {
+    const input = event.target;
+    const file = input.files && input.files[0];
+    const message = document.getElementById('parentPlayersMessage');
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const added = this.deps.importPlayers(JSON.parse(String(reader.result)));
+        message.textContent = added === 1
+          ? '✓ 1 speler toegevoegd. Kies hem via "👥 Andere speler" op de kaart.'
+          : `✓ ${added} spelers toegevoegd. Kies ze via "👥 Andere speler" op de kaart.`;
+        this.renderPlayers();
+      } catch (error) {
+        message.textContent = `Importeren lukte niet: ${error.message || 'onbekend bestand.'}`;
+      }
+      input.value = '';
+    };
+    reader.readAsText(file);
   }
 
   /** Vraag voor volwassenen (bewust buiten de tafels van 1 t/m 12). */
@@ -223,7 +366,7 @@ export class ParentScreen {
     const tiles = [
       [String(d.getFlights()), 'vluchten'],
       [String(info.answered), 'sommen beantwoord'],
-      [`${info.correctPercent}%`, 'goed'],
+      [`${info.knowPercent}%`, info.nearMiss ? `weet het (${info.correctPercent}% goed + ${info.nearMiss}× net mis)` : 'weet het (goed)'],
       [info.averageTime === null ? '–' : formatTime(info.averageTime), 'gem. tijd (goed)'],
       [`${info.mastered}/${info.totalFacts}`, 'sommen beheerst'],
       [`${d.getBadgeCount()}/${d.totalBadges}`, 'badges']
@@ -338,6 +481,8 @@ export class ParentScreen {
       line.textContent = `🧢 Tegen Karel: ${race.wins}× gewonnen (waarvan ${race.streetWins}× op een straatlengte)`;
       worldBox.appendChild(line);
     }
+
+    this.renderPlayers();
   }
 
   /** Alles als platte tekst (voor mail of een leerlingdossier). */
@@ -348,7 +493,8 @@ export class ParentScreen {
     const lines = [
       `Rekenvogels — voortgang van ${d.getName()} (${new Date().toLocaleDateString('nl-NL')})`,
       '',
-      `Vluchten: ${d.getFlights()} · Sommen beantwoord: ${info.answered} · Goed: ${info.correctPercent}%`,
+      `Vluchten: ${d.getFlights()} · Sommen beantwoord: ${info.answered} · Goed: ${info.correctPercent}% · Weet het (goed + net mis): ${info.knowPercent}%`,
+      `Net mis (net naast de goede ring, maar wist het wel): ${info.nearMiss}×`,
       `Gemiddelde tijd (goede antwoorden): ${info.averageTime === null ? '–' : formatTime(info.averageTime)}`,
       `Beheerst (goed én snel): ${info.mastered} van de ${info.totalFacts} sommen`,
       '',

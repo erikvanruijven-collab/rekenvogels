@@ -233,7 +233,8 @@ class RaceEffects {
   onAnswer(result) {
     const r = CONFIG.race;
     let delta;
-    if (result.correct && result.fast) delta = r.fastGain;
+    if (result.nearMiss) delta = 0;   // net mis: wist het wel, Karel loopt niet uit
+    else if (result.correct && result.fast) delta = r.fastGain;
     else if (result.correct && result.slow) delta = r.slowLoss;
     else if (result.correct) delta = r.correctGain;
     else delta = r.wrongLoss;

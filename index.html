@@ -11,6 +11,9 @@
   <meta name="theme-color" content="#5fb4f2">
   <meta name="format-detection" content="telephone=no">
   <title>Rekenvogels</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -48,6 +51,7 @@
               <button id="birdBtn" class="small-btn" type="button">🪶 Mijn vogel</button>
               <button id="shopBtn" class="small-btn shop-btn" type="button">🛍️ Vogel-atelier</button>
               <button id="badgesBtn" class="small-btn badges-btn" type="button">🏅 Badges</button>
+              <button id="playersBtn" class="small-btn players-btn" type="button">👥 Andere speler</button>
             </div>
           </div>
         </div>
@@ -154,10 +158,23 @@
       <h2>Werelden</h2>
       <div id="parentWorlds" class="parent-worlds"></div>
 
+      <h2>Spelers op deze tablet</h2>
+      <div id="parentPlayers" class="parent-players"></div>
+      <div class="parent-player-actions">
+        <button id="exportAllBtn" class="tune-btn" type="button">⬇️ Exporteer alle spelers</button>
+        <label class="tune-btn import-btn">⬆️ Importeer spelers (bestand)
+          <input id="importFile" type="file" accept=".json,application/json" hidden>
+        </label>
+      </div>
+      <p id="parentPlayersMessage" class="parent-detail">Exporteren maakt een bestandje om een speler naar een andere tablet (of de geïnstalleerde app) mee te nemen.</p>
+
       <p class="parent-explain">
         <strong>Zo lees je het:</strong> <em>beheerst</em> = de laatste keer goed én binnen 2 seconden (of al twee keer snel goed);
         <em>traag</em> = goed, maar gemiddeld langer dan 2,5 seconden (het kind rekent het nog uit in plaats van het te weten);
-        <em>hapert</em> = de laatste keer fout. Haperende en trage sommen komen in de game vanzelf vaker terug.
+        <em>hapert</em> = de laatste keer fout. Haperende en trage sommen komen in de game vanzelf vaker terug.<br>
+        <strong>Net mis:</strong> de vogel vloog al op de hoogte van de goede ring, maar ging er net langs.
+        Het kind wist het antwoord dus wel; alleen het mikken lukte niet. Dat telt mee bij <em>weet het</em>
+        (niet als fout), maar in het spel levert het geen veren of sterren op.
       </p>
     </div>
   </div>
@@ -174,6 +191,15 @@
         <button id="confirmNo" class="start-tap" type="button">Nee, toch niet</button>
         <button id="confirmYes" class="tune-btn danger" type="button">Ja, opnieuw</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Wie gaat er vliegen? (spelerskeuze) -->
+  <div id="playersOverlay" class="hidden">
+    <div class="start-card players-card">
+      <h1>Wie gaat er vliegen?</h1>
+      <div id="playersGrid" class="players-grid"></div>
+      <p id="playersMessage" class="players-hint">Elke speler heeft een eigen vogel, veren en badges.</p>
     </div>
   </div>
 
@@ -208,6 +234,7 @@
         <div><span id="statFeathers">+0</span><small>Veren 🪶</small></div>
       </div>
       <p id="roundRace" class="round-race hidden"></p>
+      <p id="roundNear" class="round-near hidden"></p>
       <p id="roundUnlock" class="round-unlock hidden"></p>
       <p id="roundPractice" class="round-practice hidden"></p>
       <div class="bird-actions">

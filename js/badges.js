@@ -20,6 +20,7 @@
 
 import { CONFIG } from './config.js';
 import { groundY } from './physics.js';
+import { playerKey } from './storage.js';
 
 export const BADGES = [
   { id: 'eerste-vlucht',  icon: '🐣', name: 'Eerste Vlucht',            hint: 'Vlieg je eerste vlucht helemaal uit.' },
@@ -73,7 +74,7 @@ export class BadgeTracker {
   // -------------------------------------------------------------------
   load() {
     try {
-      const raw = localStorage.getItem(CONFIG.storageKeys.badges);
+      const raw = localStorage.getItem(playerKey('badges'));
       const data = raw ? JSON.parse(raw) : {};
       return data && typeof data === 'object' ? data : {};
     } catch (error) {
@@ -84,7 +85,7 @@ export class BadgeTracker {
 
   save() {
     try {
-      localStorage.setItem(CONFIG.storageKeys.badges, JSON.stringify(this.earned));
+      localStorage.setItem(playerKey('badges'), JSON.stringify(this.earned));
     } catch (error) {
       console.warn('Badges konden niet worden opgeslagen:', error);
     }
@@ -94,7 +95,7 @@ export class BadgeTracker {
   reset() {
     this.earned = {};
     try {
-      localStorage.removeItem(CONFIG.storageKeys.badges);
+      localStorage.removeItem(playerKey('badges'));
     } catch (error) {
       // niets aan de hand
     }
@@ -145,8 +146,8 @@ export class BadgeTracker {
       this.fastStreak = 0;
     }
 
-    // Reeks foute ringen (voor de Verdwaalde Postduif)
-    if (result.correct) {
+    // Reeks foute ringen (voor de Verdwaalde Postduif); net mis telt niet als fout
+    if (result.correct || result.nearMiss) {
       this.wrongStreak = 0;
     } else {
       this.wrongStreak += 1;

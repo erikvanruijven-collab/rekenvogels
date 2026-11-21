@@ -1180,6 +1180,169 @@ body {
   line-height: 1.5;
 }
 
+.players-btn {
+  background: #eaf7ee;
+  color: #1f6e33;
+}
+
+/* ---------- Wie gaat er vliegen? ---------- */
+#playersOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 60, 100, 0.3);
+}
+
+.players-card {
+  animation: none;
+  width: min(900px, 96vw);
+  max-height: 96vh;
+  max-height: 96dvh;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.players-card h1 {
+  font-size: clamp(30px, 5.5vh, 46px);
+  margin-bottom: 14px;
+}
+
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.player-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 6px 10px;
+  border: 3px solid transparent;
+  border-radius: 18px;
+  background: #eef5fc;
+  font: inherit;
+  color: #21324f;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.player-card:active {
+  transform: scale(0.96);
+}
+
+.player-card.current {
+  border-color: #ffc928;
+  background: #fff6d6;
+}
+
+.player-card canvas {
+  width: 130px;
+  height: 95px;
+}
+
+.player-card strong {
+  font-size: 19px;
+}
+
+.player-card small {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.player-card.new-player {
+  justify-content: center;
+  min-height: 150px;
+  border: 3px dashed #b9d3ec;
+  background: #f7fbff;
+  font-size: 18px;
+  font-weight: bold;
+  color: #2f7fd0;
+}
+
+.player-card.new-player span {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.players-hint {
+  margin: 12px 0 0;
+  font-size: 15px;
+  opacity: 0.75;
+}
+
+/* ---------- Spelers in het voortgangsscherm ---------- */
+.parent-players {
+  overflow-x: auto;
+}
+
+.parent-players table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.parent-players th,
+.parent-players td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e3e8ef;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.parent-players th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+}
+
+.parent-players tr.current td {
+  background: #fff9e3;
+  font-weight: bold;
+}
+
+.parent-players .row-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 5px 10px;
+  margin-right: 4px;
+  background: #e6eef7;
+  font: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  color: #2a3a55;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.parent-players .row-btn.danger {
+  background: #ffe1dc;
+  color: #a83232;
+}
+
+.parent-players .row-btn.confirm {
+  background: #a83232;
+  color: #ffffff;
+}
+
+.parent-player-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.parent-player-actions .tune-btn {
+  flex: none;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+}
+
 .link-btn {
   border: none;
   background: none;
@@ -1270,6 +1433,16 @@ body {
   background: #eef3f9;
   color: #3d4d68;
   font-size: 17px;
+}
+
+.round-near {
+  margin: 0 0 12px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: #e7f0ff;
+  font-size: 16px;
+  font-weight: bold;
+  color: #24508f;
 }
 
 .round-unlock.hint {

@@ -395,11 +395,34 @@ export class FlightPhysics {
         }
         column.chosenSlot = chosen;
 
+        // Net mis? Geen ring geraakt, de dichtstbijzijnde ring was de goede,
+        // de vogel zat er vlak naast én vloog al even op de hoogte van die ring.
+        // Dan wist het kind het antwoord wel; alleen het mikken ging net mis.
+        let nearMiss = false;
+        if (chosen === -1) {
+          let nearest = null;
+          let nearestDy = Infinity;
+          for (const ring of column.rings) {
+            const dy = Math.abs(b.y - ring.y);
+            if (dy < nearestDy) {
+              nearestDy = dy;
+              nearest = ring;
+            }
+          }
+          // "Gekozen" = minstens 0,4 s op die hoogte gevlogen (niet er toevallig langs duiken)
+          const intended = this.lane === column.correctSlot;
+          nearMiss = Boolean(nearest)
+            && nearest.slot === column.correctSlot
+            && nearestDy < nearest.r * rc.nearMissTolerance
+            && intended;
+        }
+
         // Reactietijd = moment waarop de vogel koos voor de baan waar hij doorheen vloog
+        const aimed = nearMiss ? column.correctSlot : chosen;
         let reactionTime = column.age;
-        if (chosen === this.lane) {
+        if (aimed === this.lane) {
           reactionTime = column.laneEnterAge;
-        } else if (chosen === this.candidateLane) {
+        } else if (aimed === this.candidateLane) {
           reactionTime = this.candidateSince;
         }
 
@@ -408,6 +431,7 @@ export class FlightPhysics {
           columnId: column.id,
           chosenSlot: chosen,
           correctSlot: column.correctSlot,
+          nearMiss,
           reactionTime,
           x: b.x,
           y: chosen >= 0 ? column.rings[chosen].y : b.y
