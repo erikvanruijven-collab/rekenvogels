@@ -1,0 +1,366 @@
+/* =====================================================================
+   style.css — Rekenvogels
+   Tablet-vergrendelingen (iPad Safari & Android Chrome), draai-melding
+   en de UI-laag (mute-knop, tuning-paneel, startscherm).
+   ===================================================================== */
+
+/* ---------- Basis: vullend scherm, geen scrollbars ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #5fb4f2;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #2a3a55;
+
+  /* Touch-vergrendelingen */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;          /* geen vergrootglas / menu bij lang vasthouden (iOS) */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;            /* geen scherm-bounce of pull-to-refresh */
+}
+
+body {
+  position: fixed;                      /* voorkomt de rubberband-bounce op iPad */
+  inset: 0;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- UI-laag ---------- */
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;                 /* klikken gaan door naar het canvas... */
+  z-index: 10;
+}
+
+#ui > * {
+  pointer-events: auto;                 /* ...behalve op de knoppen en het paneel */
+}
+
+.top-buttons {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
+  display: flex;
+  gap: 10px;
+}
+
+.ui-btn {
+  width: 54px;
+  height: 54px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 3px 10px rgba(20, 40, 70, 0.2);
+  font-size: 26px;
+  line-height: 54px;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.ui-btn:active {
+  transform: scale(0.92);
+}
+
+.ui-btn.active {
+  background: #ffe27a;
+}
+
+/* ---------- Tuning-paneel ---------- */
+#tunePanel {
+  position: absolute;
+  top: calc(80px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
+  width: min(320px, 80vw);
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: 16px 18px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 28px rgba(20, 40, 70, 0.28);
+}
+
+#tunePanel h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.tune-row {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.tune-row-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.tune-value {
+  font-variant-numeric: tabular-nums;
+  color: #2f7fd0;
+}
+
+.tune-row input[type="range"] {
+  width: 100%;
+  height: 34px;                         /* groot genoeg voor een vinger */
+  margin: 0;
+  accent-color: #2f7fd0;
+  touch-action: pan-x;
+}
+
+.tune-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.tune-btn {
+  flex: 1;
+  height: 42px;
+  border: none;
+  border-radius: 12px;
+  background: #e6eef7;
+  color: #2a3a55;
+  font: inherit;
+  font-weight: bold;
+  font-size: 15px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tune-btn.primary {
+  background: #2f7fd0;
+  color: #ffffff;
+}
+
+#tuneValues {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f2f6fb;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  -webkit-user-select: text;            /* waarden mogen wél geselecteerd/gekopieerd worden */
+  user-select: text;
+}
+
+/* ---------- Startscherm ---------- */
+#startOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 60, 100, 0.25);
+  cursor: pointer;
+}
+
+.start-card {
+  text-align: center;
+  padding: 28px 44px 30px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 34px rgba(20, 40, 70, 0.3);
+  animation: float 3s ease-in-out infinite;
+}
+
+.start-card h1 {
+  margin: 0;
+  font-size: clamp(38px, 7vh, 64px);
+  color: #2f7fd0;
+  letter-spacing: 1px;
+  text-shadow: 0 3px 0 #ffd84a;
+}
+
+.start-sub {
+  margin: 4px 0 18px;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+.start-how {
+  display: grid;
+  gap: 8px;
+  font-size: clamp(17px, 3vh, 22px);
+  font-weight: bold;
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.how-icon {
+  display: inline-block;
+  width: 34px;
+  text-align: center;
+}
+
+.start-tap {
+  display: inline-block;
+  padding: 12px 30px;
+  border-radius: 999px;
+  background: #ffc928;
+  color: #5a3a00;
+  font-size: clamp(20px, 3.5vh, 26px);
+  font-weight: bold;
+  box-shadow: 0 4px 0 #d9a400;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.version-label {
+  margin: 14px 0 0;
+  font-size: 12px;
+  opacity: 0.45;
+}
+
+.start-feathers {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+/* ---------- Eindscherm ---------- */
+#roundOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 60, 100, 0.3);
+}
+
+.round-card {
+  animation: none;
+  max-width: min(640px, 92vw);
+}
+
+.round-score {
+  margin: 6px 0 18px;
+  font-size: clamp(22px, 4vh, 30px);
+  font-weight: bold;
+}
+
+.round-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.round-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  border-radius: 16px;
+  background: #eef5fc;
+}
+
+.round-stats span {
+  font-size: clamp(22px, 4vh, 30px);
+  font-weight: bold;
+  color: #2f7fd0;
+}
+
+.round-stats small {
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.round-practice {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff4dc;
+  font-size: 17px;
+  font-weight: bold;
+  color: #8a5a00;
+}
+
+button.start-tap {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+/* ---------- Draai-melding (alleen in portretstand) ---------- */
+#rotatePrompt {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(#5fb4f2, #9fd6fb);
+  color: #ffffff;
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.rotate-icon {
+  font-size: 72px;
+  animation: rotateHint 2s ease-in-out infinite;
+}
+
+@keyframes rotateHint {
+  0%, 30% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(90deg); }
+}
+
+@media (orientation: portrait) {
+  #rotatePrompt {
+    display: flex;
+  }
+}

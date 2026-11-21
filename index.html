@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <!-- Viewport-beveiliging: geen zoom, vullend tot in de randen (iPad notch/afgeronde hoeken) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rekenvogels">
+  <meta name="theme-color" content="#5fb4f2">
+  <meta name="format-detection" content="telephone=no">
+  <title>Rekenvogels</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Het speelveld -->
+  <canvas id="game" aria-label="Rekenvogels speelveld"></canvas>
+
+  <!-- UI-laag boven het canvas -->
+  <div id="ui">
+    <div class="top-buttons">
+      <button id="tuneBtn" class="ui-btn" type="button" aria-label="Tuning-paneel">⚙️</button>
+      <button id="muteBtn" class="ui-btn" type="button" aria-label="Geluid uitzetten">🔊</button>
+    </div>
+
+    <section id="tunePanel" class="hidden" aria-label="Tuning-paneel">
+      <h2>Vlieggevoel afstellen</h2>
+      <div id="tuneSliders"></div>
+      <div class="tune-actions">
+        <button id="tuneReset" class="tune-btn" type="button">Herstel</button>
+        <button id="tuneClose" class="tune-btn primary" type="button">Klaar</button>
+      </div>
+      <pre id="tuneValues"></pre>
+    </section>
+  </div>
+
+  <!-- Startscherm -->
+  <div id="startOverlay">
+    <div class="start-card">
+      <h1>Rekenvogels</h1>
+      <p class="start-sub">Wereld 1 · De Wolkenvallei · tafels van 1, 2, 5 en 10</p>
+      <div class="start-how">
+        <div><span class="how-icon">👇</span> Houd vast = duiken</div>
+        <div><span class="how-icon">☁️</span> Loslaten = zweven</div>
+        <div><span class="how-icon">🎯</span> Vlieg door de ring met het goede antwoord</div>
+        <div><span class="how-icon">🔥</span> Snel gekozen? Turbo-thermiek!</div>
+      </div>
+      <p class="start-feathers">Jouw veren: <strong id="startFeathers">0</strong> 🪶</p>
+      <div class="start-tap">Tik om te vliegen!</div>
+      <p id="versionLabel" class="version-label"></p>
+    </div>
+  </div>
+
+  <!-- Eindscherm na een vlucht -->
+  <div id="roundOverlay" class="hidden">
+    <div class="start-card round-card">
+      <h1 id="roundTitle">Goed gevlogen!</h1>
+      <p class="round-score" id="roundScore">0 van de 20 goed</p>
+      <div class="round-stats">
+        <div><span id="statTurbo">0</span><small>Turbo's 🔥</small></div>
+        <div><span id="statTime">–</span><small>Gem. tijd</small></div>
+        <div><span id="statStreak">0</span><small>Beste reeks</small></div>
+        <div><span id="statFeathers">+0</span><small>Veren 🪶</small></div>
+      </div>
+      <p id="roundPractice" class="round-practice hidden"></p>
+      <button id="againBtn" class="start-tap" type="button">Nog een vlucht!</button>
+    </div>
+  </div>
+
+  <!-- Draai-melding voor portretstand -->
+  <div id="rotatePrompt">
+    <div class="rotate-icon">📱↻</div>
+    <p>Draai je tablet een kwartslag<br>om te kunnen vliegen!</p>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
