@@ -47,6 +47,7 @@
             <div class="start-buttons">
               <button id="birdBtn" class="small-btn" type="button">🪶 Mijn vogel</button>
               <button id="shopBtn" class="small-btn shop-btn" type="button">🛍️ Vogel-atelier</button>
+              <button id="badgesBtn" class="small-btn badges-btn" type="button">🏅 Badges</button>
             </div>
           </div>
         </div>
@@ -90,11 +91,31 @@
     </div>
   </div>
 
+  <!-- Badge-kast -->
+  <div id="badgeOverlay" class="hidden">
+    <div class="start-card badge-card">
+      <div class="shop-header">
+        <h1>Badge-kast</h1>
+        <p class="start-feathers"><strong id="badgeCount">0</strong> van de <span id="badgeTotal">22</span> gehaald</p>
+      </div>
+      <div id="badgeGrid" class="badge-grid"></div>
+      <h2 class="knight-title">🛡️ Tafelridders</h2>
+      <p class="knight-hint">Elke som van een tafel goed én op turbo-snelheid = een ridderschild.</p>
+      <div id="knightGrid" class="knight-grid"></div>
+      <div class="bird-actions">
+        <button id="badgeClose" class="tune-btn" type="button">🗺️ Terug naar de kaart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Melding bij een nieuwe badge -->
+  <div id="toastArea" aria-live="polite"></div>
+
   <!-- Bevestiging "Nieuw spel" -->
   <div id="confirmOverlay" class="hidden">
     <div class="start-card confirm-card">
       <h2>Helemaal opnieuw beginnen?</h2>
-      <p>Alle werelden gaan weer op slot en je veren, sterren en gekochte spullen zijn weg.<br>Je vogel en zijn naam blijven bewaard.</p>
+      <p>Alle werelden gaan weer op slot en je veren, sterren, gekochte spullen en badges zijn weg.<br>Je vogel en zijn naam blijven bewaard.</p>
       <div class="bird-actions">
         <button id="confirmNo" class="start-tap" type="button">Nee, toch niet</button>
         <button id="confirmYes" class="tune-btn danger" type="button">Ja, opnieuw</button>

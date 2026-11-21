@@ -564,6 +564,24 @@ export class AudioEngine {
     }
   }
 
+  // -------------------------------------------------------------------
+  // Stap 4c: Badges
+  // -------------------------------------------------------------------
+
+  /** Nieuwe badge: feestelijk loopje met glinster erachteraan. */
+  playBadge() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime + 0.02;
+    [523.3, 659.3, 784.0, 1046.5].forEach((frequency, index) => {
+      this.marimbaNote(frequency, now + index * 0.1, 0.3);
+    });
+    this.marimbaNote(1318.5, now + 0.45, 0.28);
+    this.marimbaNote(1568.0, now + 0.45, 0.22);
+    [2093.0, 2637.0, 3136.0].forEach((frequency, index) => {
+      this.marimbaNote(frequency, now + 0.65 + index * 0.05, 0.1);
+    });
+  }
+
   /** Zet geluid aan/uit en onthoud de keuze. Geeft de nieuwe toestand terug. */
   toggleMute() {
     this.setMuted(!this.muted);

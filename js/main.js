@@ -46,6 +46,7 @@ import {
 import { ITEMS, getItem, drawGearPreview } from './items.js';
 import { WORLDS, FIRST_WORLD, getWorld, nextWorld, tablesLabel } from './worlds/index.js';
 import { GoldenDive } from './minigames/gouden-duik.js';
+import { BadgeTracker, BADGES, KNIGHT_TABLES, knightId, badgeInfo, TOTAL_BADGES } from './badges.js';
 
 // ---------------------------------------------------------------------
 // Opzetten
@@ -89,6 +90,9 @@ const shopFeathers = $('shopFeathers');
 const shopItemName = $('shopItemName');
 const shopItemDesc = $('shopItemDesc');
 const shopAction = $('shopAction');
+const badgeOverlay = $('badgeOverlay');
+const badgesButton = $('badgesBtn');
+const toastArea = $('toastArea');
 
 let profile = loadProfile();
 let currentWorld = getWorld(FIRST_WORLD);
@@ -98,6 +102,7 @@ const audio = new AudioEngine();
 const renderer = new Renderer(canvas, currentWorld.colors);
 const math = new MathEngine();
 const goldenDive = new GoldenDive();
+const badges = new BadgeTracker();
 
 renderer.setBird(profile.birdId);
 renderer.setEquipment(getEquipment());
@@ -204,6 +209,7 @@ function enterStartState() {
 
 function showStartScreen() {
   startFeathers.textContent = String(math.totalFeathers);
+  badgesButton.textContent = `🏅 Badges ${badges.count}/${TOTAL_BADGES}`;
   startGreeting.textContent = `Hoi ${profile.name}!`;
   mapMessage.innerHTML = '&nbsp;';
   buildWorldMap();
@@ -280,6 +286,7 @@ $('confirmNo').addEventListener('click', () => {
 $('confirmYes').addEventListener('click', () => {
   resetGameProgress();
   math.reloadProgress();
+  badges.reset();
   currentWorld = getWorld(FIRST_WORLD);
   renderer.setWorld(currentWorld.colors);
   renderer.setEquipment(getEquipment());
@@ -412,6 +419,95 @@ function drawPreviews(seconds) {
 }
 
 // ---------------------------------------------------------------------
+// Badges (Stap 4c): meldingen en de badge-kast
+// ---------------------------------------------------------------------
+const toastQueue = [];
+let toastBusy = false;
+
+/** Laat nieuwe badges één voor één zien, met fanfare. */
+function showBadges(list) {
+  if (!list || list.length === 0) return;
+  toastQueue.push(...list);
+  if (!toastBusy) nextToast();
+}
+
+function nextToast() {
+  const badge = toastQueue.shift();
+  if (!badge) {
+    toastBusy = false;
+    return;
+  }
+  toastBusy = true;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.textContent = badge.icon;
+  const text = document.createElement('span');
+  const small = document.createElement('span');
+  small.className = 'toast-small';
+  small.textContent = 'Nieuwe badge!';
+  const name = document.createElement('span');
+  name.className = 'toast-name';
+  name.textContent = badge.name;
+  text.appendChild(small);
+  text.appendChild(name);
+  toast.appendChild(icon);
+  toast.appendChild(text);
+  toastArea.appendChild(toast);
+  audio.playBadge();
+  setTimeout(() => toast.remove(), 3700);
+  setTimeout(nextToast, 1600);   // volgende melding iets later, zodat ze niet over elkaar vallen
+}
+
+function renderBadgeCabinet() {
+  $('badgeCount').textContent = String(badges.count);
+  $('badgeTotal').textContent = String(TOTAL_BADGES);
+
+  const grid = $('badgeGrid');
+  grid.innerHTML = '';
+  for (const badge of BADGES) {
+    const earned = badges.has(badge.id);
+    const card = document.createElement('div');
+    card.className = `badge${earned ? '' : ' locked'}${badge.id === 'postduif' && earned ? ' spin' : ''}`;
+    const parts = [
+      ['badge-icon', badge.icon],
+      ['badge-name', earned ? badge.name : '???'],
+      ['badge-hint', badge.hint]
+    ];
+    for (const [className, text] of parts) {
+      const span = document.createElement('span');
+      span.className = className;
+      span.textContent = text;
+      card.appendChild(span);
+    }
+    grid.appendChild(card);
+  }
+
+  const knights = $('knightGrid');
+  knights.innerHTML = '';
+  for (const table of KNIGHT_TABLES) {
+    const earned = badges.has(knightId(table));
+    const shield = document.createElement('div');
+    shield.className = `knight${earned ? '' : ' locked'}`;
+    shield.textContent = String(table);
+    shield.title = badgeInfo(knightId(table)).hint;
+    knights.appendChild(shield);
+  }
+}
+
+badgesButton.addEventListener('click', () => {
+  audio.unlock();
+  startOverlay.classList.add('hidden');
+  renderBadgeCabinet();
+  badgeOverlay.classList.remove('hidden');
+});
+$('badgeClose').addEventListener('click', () => {
+  badgeOverlay.classList.add('hidden');
+  showStartScreen();
+});
+
+// ---------------------------------------------------------------------
 // Vogel-atelier (Stap 4b): passen, kopen, aan- en uittrekken
 // ---------------------------------------------------------------------
 let shopSelected = null;   // id van het item dat nu in de passpiegel staat
@@ -522,6 +618,7 @@ shopAction.addEventListener('click', () => {
   } else if (itemUnlocked(item.id) && math.spendFeathers(item.price)) {
     addOwnedItem(item.id);
     audio.playBuy();
+    setTimeout(() => showBadges(badges.onPurchase(item.id)), 500);
   } else {
     audio.playWrong();
   }
@@ -570,6 +667,7 @@ function startGame(world = currentWorld) {
   game.playTime = 0;
   game.pending = null;
   game.state = 'playing';
+  badges.startFlight();
   activePointers.clear();
   startOverlay.classList.add('hidden');
   roundOverlay.classList.add('hidden');
@@ -588,7 +686,9 @@ function endFlight() {
     race = currentEffects.summary();
     race.record = recordRaceResult(race);
   }
-  game.pending = { summary, result, race };
+  const allOpen = WORLDS.every((w) => isWorldUnlocked(w.id));
+  game.pending = { summary, result, race, badges: badges.onFlightEnd(summary, race, allOpen) };
+  game.diveCaught = 0;
   stopEffects();
   game.question = null;
   physics.clearColumns();
@@ -604,6 +704,8 @@ function endFlight() {
 /** Na de Gouden Duik: eindscherm tonen. */
 function finishDive(bonus) {
   math.addFeathers(bonus);
+  const earned = [...(game.pending.badges || []), ...badges.onDive(game.diveCaught || 0)];
+  setTimeout(() => showBadges(earned), 700);
   audio.setDiveWind(false);
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
@@ -698,6 +800,7 @@ function handleAnswer(event) {
   if (!question || event.columnId !== game.columnId) return;
 
   const result = math.submitAnswer(question, event.chosenSlot, event.reactionTime);
+  showBadges(badges.onAnswer(result, question, math.progress.facts));
   physics.markColumn(event.columnId, event.chosenSlot, event.correctSlot);
   const bird = physics.bird;
 
@@ -837,6 +940,7 @@ window.addEventListener('keydown', (event) => {
   if (!birdOverlay.classList.contains('hidden')) return;
   if (!confirmOverlay.classList.contains('hidden')) return;
   if (!shopOverlay.classList.contains('hidden')) return;
+  if (!badgeOverlay.classList.contains('hidden')) return;
   event.preventDefault();
   if (game.state === 'start') {
     startGame(currentWorld);
@@ -870,7 +974,7 @@ document.addEventListener('visibilitychange', () => {
 
 // Geen scrollen, zoomen, contextmenu of dubbeltik-zoom
 document.addEventListener('touchmove', (event) => {
-  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card');
+  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card, .badge-card');
   if (!scrollable) event.preventDefault();
 }, { passive: false });
 document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -966,6 +1070,7 @@ tuneResetButton.addEventListener('click', () => {
 unlockAllButton.addEventListener('click', () => {
   unlockAllWorlds();
   if (game.state === 'start') buildWorldMap();
+  showBadges(badges.onWorldsChanged(true));
   unlockAllButton.textContent = '🔓 Alle werelden zijn open';
 });
 tunePanel.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -1006,6 +1111,7 @@ function handleDiveEvents(events) {
         if (event.gold) renderer.addShake(4);
         break;
       case 'diveEnd':
+        game.diveCaught = event.caught;
         audio.setDiveWind(false);
         audio.playFanfare();
         break;
@@ -1051,6 +1157,7 @@ function frame(now) {
     physics.setDiving(isPressed());
     if (currentEffects) currentEffects.update(dt);
     handleEvents(physics.update(dt));
+    showBadges(badges.onFlightFrame(physics, dt));
     updateQuestions(dt);
     if (game.state === 'playing') {
       audio.updateWind(physics.bird.diving, physics.speedFactor);

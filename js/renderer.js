@@ -70,6 +70,7 @@ export class Renderer {
     this.ringStyle = 'normal';  // 'normal' of 'storm' (ringen in onweerswolken)
     this.bolts = [];            // bliksemschichten op de voorgrond
     this.equipment = { hat: null, trail: null, turbo: null, start: null };
+    this.fartTimer = 1.5;       // tijd tot het volgende pufje (scheetwolkje)
     this.rainbow = [];          // regenboogspoor (atelier)
   }
 
@@ -79,23 +80,29 @@ export class Renderer {
     this.rainbow = [];
   }
 
-  /** Pfrrt! Groen wolkje achter de vogel (scheetwolkje bij Turbo). */
-  fart(bird) {
-    for (let i = 0; i < 9; i += 1) {
+  /**
+   * Pfrrt! Groen wolkje achter de vogel (atelier: scheetwolkje).
+   * big = true bij een Turbo-thermiek; anders een klein pufje onderweg.
+   */
+  fart(bird, big = true) {
+    const count = big ? 14 : 7;
+    const sizeBase = big ? 12 : 9;
+    for (let i = 0; i < count; i += 1) {
       this.particles.push({
         type: 'dust',
         x: bird.x - 34 + (Math.random() - 0.5) * 14,
         y: bird.y + 6 + (Math.random() - 0.5) * 14,
-        vx: -80 - Math.random() * 90,
-        vy: (Math.random() - 0.5) * 50,
+        vx: -40 - Math.random() * 60,
+        vy: (Math.random() - 0.5) * 40,
         gravity: -25,
         drag: 1.4,
-        life: 0.9 + Math.random() * 0.5,
+        life: (big ? 1.2 : 0.9) + Math.random() * 0.5,
         age: 0,
-        size: 9 + Math.random() * 9,
+        size: sizeBase + Math.random() * sizeBase,
         rot: 0,
         vr: 0,
-        color: 'rgba(150, 195, 90, 0.55)'
+        color: big ? 'rgba(120, 185, 60, 0.7)' : 'rgba(120, 185, 60, 0.62)',
+        fart: true
       });
     }
   }
@@ -414,6 +421,15 @@ export class Renderer {
         vr: 0,
         color: 'rgba(70, 70, 78, 0.5)'
       });
+    }
+
+    // Scheetwolkje (atelier): om de paar seconden een klein pufje
+    if (this.equipment.turbo === 'fart' && !this.paused) {
+      this.fartTimer -= dt;
+      if (this.fartTimer <= 0) {
+        this.fart(bird, false);
+        this.fartTimer = 1.6 + Math.random() * 1.2;
+      }
     }
 
     // Regenboogspoor (atelier): altijd zichtbaar

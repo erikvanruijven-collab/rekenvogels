@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.9.0 · stap 4b',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.10.0 · stap 4c',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -175,7 +175,8 @@ export const CONFIG = {
     progress: 'rekenvogels.progress.v1',
     profile: 'rekenvogels.profile.v1',
     worlds: 'rekenvogels.worlds.v1',
-    items: 'rekenvogels.items.v1'
+    items: 'rekenvogels.items.v1',
+    badges: 'rekenvogels.badges.v1'
   }
 };
 
