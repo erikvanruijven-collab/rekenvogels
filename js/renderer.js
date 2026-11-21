@@ -15,6 +15,7 @@
 
 import { CONFIG } from './config.js';
 import { groundY } from './physics.js';
+import { drawBirdBody, DEFAULT_BIRD } from './birds.js';
 
 const TWO_PI = Math.PI * 2;
 const CLOUD_WRAP = 2600; // breedte waarover wolken zich herhalen
@@ -62,6 +63,12 @@ export class Renderer {
     this.skyGradient = null;
 
     this.cloudLayers = this.createCloudLayers();
+    this.birdId = DEFAULT_BIRD;
+  }
+
+  /** Welke vogel er getekend wordt (zie birds.js). */
+  setBird(birdId) {
+    this.birdId = birdId;
   }
 
   /** Past de canvasgrootte aan het scherm aan. Geeft de logische breedte terug. */
@@ -680,28 +687,6 @@ export class Renderer {
     }
   }
 
-  /** Eén vleugel, in lokale coördinaten wijzend naar achteren (-x). */
-  drawWing(length, width, rotation, fill, edge) {
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.rotate(rotation);
-    ctx.fillStyle = fill;
-    ctx.beginPath();
-    ctx.moveTo(4, -2);
-    ctx.quadraticCurveTo(-length * 0.45, -width * 1.1, -length, -width * 0.25);
-    ctx.lineTo(-length * 0.86, width * 0.12);
-    ctx.lineTo(-length * 0.72, width * 0.05);
-    ctx.lineTo(-length * 0.6, width * 0.32);
-    ctx.lineTo(-length * 0.46, width * 0.2);
-    ctx.quadraticCurveTo(-length * 0.2, width * 0.55, 4, 5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = edge;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.restore();
-  }
-
   drawBird(bird) {
     const ctx = this.ctx;
     const open = bird.wingOpen;
@@ -718,122 +703,14 @@ export class Renderer {
     const stretch = 1 + (1 - open) * 0.1;
     ctx.scale(stretch, 2 - stretch);
 
-    // Schaduwrandje rondom voor leesbaarheid
-    const bodyColor = '#3d8fe0';
-    const bodyDark = '#2a6db3';
-    const bellyColor = '#ffe08a';
-
-    // --- Achterste vleugel ---
-    const backRotation = 0.1 + open * (1.05 + flapOsc * 0.8);
-    ctx.save();
-    ctx.translate(2, -8);
-    this.drawWing(22 + 22 * open, 12 + 4 * open, backRotation, bodyDark, '#1f5590');
-    ctx.restore();
-
-    // --- Staart ---
-    ctx.fillStyle = bodyDark;
-    ctx.beginPath();
-    ctx.moveTo(-22, -6);
-    ctx.lineTo(-44, -16);
-    ctx.lineTo(-40, -4);
-    ctx.lineTo(-46, 4);
-    ctx.lineTo(-22, 6);
-    ctx.closePath();
-    ctx.fill();
-
-    // --- Lijf ---
-    ctx.fillStyle = bodyColor;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 30, 21, 0, 0, TWO_PI);
-    ctx.fill();
-
-    // Buik
-    ctx.fillStyle = bellyColor;
-    ctx.beginPath();
-    ctx.ellipse(4, 8, 21, 12, 0.1, 0, TWO_PI);
-    ctx.fill();
-
-    // --- Hoofd ---
-    ctx.fillStyle = bodyColor;
-    ctx.beginPath();
-    ctx.arc(22, -10, 17, 0, TWO_PI);
-    ctx.fill();
-
-    // Snavel
-    ctx.fillStyle = '#ff9a2e';
-    ctx.beginPath();
-    ctx.moveTo(35, -14);
-    ctx.quadraticCurveTo(48, -12, 53, -6);
-    ctx.quadraticCurveTo(46, -2, 35, -2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#d9741a';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(36, -7);
-    ctx.lineTo(50, -6);
-    ctx.stroke();
-
-    // Leren vliegmuts
-    ctx.fillStyle = '#8b5a2b';
-    ctx.beginPath();
-    ctx.arc(21, -12, 17.5, Math.PI * 1.02, Math.PI * 1.98);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#a8703a';
-    ctx.beginPath();
-    ctx.ellipse(8, -8, 5, 8, 0.3, 0, TWO_PI); // oorklep
-    ctx.fill();
-
-    // Brilband
-    ctx.strokeStyle = '#5a3a1c';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(6, -15);
-    ctx.lineTo(22, -17);
-    ctx.stroke();
-
-    // Vliegbril: lens met messing rand
-    ctx.fillStyle = 'rgba(170, 225, 255, 0.55)';
-    ctx.beginPath();
-    ctx.arc(28, -15, 8, 0, TWO_PI);
-    ctx.fill();
-
-    // Oog achter de lens (kijkt mee met de vliegrichting)
-    const lookY = Math.max(-2, Math.min(2, bird.vy / 300));
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(29, -15, 4.6, 0, TWO_PI);
-    ctx.fill();
-    ctx.fillStyle = '#1b1b2f';
-    ctx.beginPath();
-    ctx.arc(30.5, -15 + lookY, 2.4, 0, TWO_PI);
-    ctx.fill();
-
-    ctx.strokeStyle = '#c9a227';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(28, -15, 8, 0, TWO_PI);
-    ctx.stroke();
-    // glinstering
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.arc(28, -15, 5, Math.PI * 1.1, Math.PI * 1.45);
-    ctx.stroke();
-
-    // Wangetje
-    ctx.fillStyle = 'rgba(255, 120, 140, 0.45)';
-    ctx.beginPath();
-    ctx.arc(30, -3, 3.5, 0, TWO_PI);
-    ctx.fill();
-
-    // --- Voorste vleugel ---
-    const frontRotation = 0.12 + open * (1.25 + flapOsc);
-    ctx.save();
-    ctx.translate(0, -4);
-    this.drawWing(24 + 26 * open, 13 + 5 * open, frontRotation, '#5aa8f0', '#2a6db3');
-    ctx.restore();
+    drawBirdBody(ctx, this.birdId, {
+      open,
+      flapOsc,
+      lookY: Math.max(-2, Math.min(2, bird.vy / 300)),
+      time: this.time,
+      diving: bird.diving,
+      turbo: bird.turboTime > 0
+    });
 
     ctx.restore();
   }

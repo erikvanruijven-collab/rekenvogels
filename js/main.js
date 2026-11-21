@@ -2,6 +2,7 @@
 // main.js — Gameloop, invoer, tuning-paneel en toestandsbeheer
 // ---------------------------------------------------------------------
 // Toestanden:  'start'    -> demovlucht op de achtergrond, startscherm
+//                            (of het vogel-keuzescherm, eerste keer verplicht)
 //              'playing'  -> een vlucht van 20 sommen
 //              'roundEnd' -> eindscherm met resultaten
 // Invoer:      pointerdown / pointerup (muis én touch), spatiebalk op
@@ -24,6 +25,8 @@ import { FlightPhysics } from './physics.js';
 import { AudioEngine } from './audio.js';
 import { Renderer } from './renderer.js';
 import { MathEngine } from './math.js';
+import { BIRDS, BIRD_ORDER, drawBirdPreview } from './birds.js';
+import { loadProfile, saveProfile, sanitizeName, randomName } from './progress.js';
 
 // ---------------------------------------------------------------------
 // Opzetten
@@ -35,6 +38,16 @@ const startOverlay = document.getElementById('startOverlay');
 const startFeathers = document.getElementById('startFeathers');
 const roundOverlay = document.getElementById('roundOverlay');
 const againButton = document.getElementById('againBtn');
+const startGreeting = document.getElementById('startGreeting');
+const startBirdCanvas = document.getElementById('startBirdCanvas');
+const birdButton = document.getElementById('birdBtn');
+const birdOverlay = document.getElementById('birdOverlay');
+const birdTitle = document.getElementById('birdTitle');
+const birdChoices = document.getElementById('birdChoices');
+const nameInput = document.getElementById('nameInput');
+const diceButton = document.getElementById('diceBtn');
+const birdCancelButton = document.getElementById('birdCancel');
+const birdDoneButton = document.getElementById('birdDone');
 const muteButton = document.getElementById('muteBtn');
 const tuneButton = document.getElementById('tuneBtn');
 const tunePanel = document.getElementById('tunePanel');
@@ -48,6 +61,9 @@ const physics = new FlightPhysics();
 const audio = new AudioEngine();
 const renderer = new Renderer(canvas, world);
 const math = new MathEngine();
+
+let profile = loadProfile();
+renderer.setBird(profile.birdId);
 
 const game = {
   state: 'start',
@@ -118,10 +134,138 @@ function enterStartState() {
   game.state = 'start';
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
-  startFeathers.textContent = String(math.totalFeathers);
-  document.getElementById('versionLabel').textContent = `versie ${CONFIG.version}`;
-  startOverlay.classList.remove('hidden');
   roundOverlay.classList.add('hidden');
+  document.getElementById('versionLabel').textContent = `versie ${CONFIG.version}`;
+  if (profile.complete) {
+    showStartScreen();
+  } else {
+    openBirdScreen(true);
+  }
+}
+
+function showStartScreen() {
+  startFeathers.textContent = String(math.totalFeathers);
+  startGreeting.textContent = `Hoi ${profile.name}!`;
+  birdOverlay.classList.add('hidden');
+  startOverlay.classList.remove('hidden');
+}
+
+// ---------------------------------------------------------------------
+// Vogel kiezen en naam geven (Stap 4a)
+// ---------------------------------------------------------------------
+let selectedBird = profile.birdId;
+const choiceCanvases = {};
+
+function buildBirdChoices() {
+  birdChoices.innerHTML = '';
+  for (const id of BIRD_ORDER) {
+    const bird = BIRDS[id];
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'bird-choice';
+    button.dataset.bird = id;
+
+    const preview = document.createElement('canvas');
+    preview.width = 320;
+    preview.height = 234;
+    preview.setAttribute('aria-hidden', 'true');
+
+    const name = document.createElement('strong');
+    name.textContent = bird.name;
+    const description = document.createElement('small');
+    description.textContent = bird.description;
+
+    button.appendChild(preview);
+    button.appendChild(name);
+    button.appendChild(description);
+    button.addEventListener('click', () => selectBird(id));
+    birdChoices.appendChild(button);
+    choiceCanvases[id] = preview;
+  }
+}
+
+function selectBird(id) {
+  selectedBird = id;
+  renderer.setBird(id);   // de demovogel op de achtergrond verandert meteen mee
+  for (const button of birdChoices.querySelectorAll('.bird-choice')) {
+    button.classList.toggle('selected', button.dataset.bird === id);
+  }
+  audio.unlock();
+  audio.playCorrect();
+}
+
+function openBirdScreen(firstTime) {
+  selectedBird = profile.birdId;
+  for (const button of birdChoices.querySelectorAll('.bird-choice')) {
+    button.classList.toggle('selected', button.dataset.bird === selectedBird);
+  }
+  nameInput.value = profile.name;
+  birdTitle.textContent = firstTime ? 'Kies jouw vogel!' : 'Jouw vogel';
+  birdCancelButton.classList.toggle('hidden', firstTime);
+  startOverlay.classList.add('hidden');
+  birdOverlay.classList.remove('hidden');
+  birdOverlay.classList.remove('typing');
+}
+
+function closeKeyboard() {
+  nameInput.blur();
+  birdOverlay.classList.remove('typing');
+  window.scrollTo(0, 0);
+}
+
+function finishBirdScreen() {
+  let name = sanitizeName(nameInput.value);
+  if (!name) name = randomName();
+  profile = { birdId: selectedBird, name, complete: true };
+  saveProfile(profile);
+  renderer.setBird(profile.birdId);
+  closeKeyboard();
+  audio.unlock();
+  audio.playFanfare();
+  showStartScreen();
+}
+
+function cancelBirdScreen() {
+  renderer.setBird(profile.birdId);
+  closeKeyboard();
+  showStartScreen();
+}
+
+buildBirdChoices();
+
+nameInput.addEventListener('focus', () => birdOverlay.classList.add('typing'));
+nameInput.addEventListener('blur', () => {
+  // Even wachten: een tik op "Klaar!" moet nog kunnen landen
+  setTimeout(() => {
+    birdOverlay.classList.remove('typing');
+    window.scrollTo(0, 0);
+  }, 150);
+});
+nameInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    closeKeyboard();
+  }
+});
+diceButton.addEventListener('click', () => {
+  nameInput.value = randomName(nameInput.value);
+  audio.unlock();
+  audio.playRingTick();
+});
+birdDoneButton.addEventListener('click', finishBirdScreen);
+birdCancelButton.addEventListener('click', cancelBirdScreen);
+birdButton.addEventListener('click', () => openBirdScreen(false));
+
+/** Fladderende vogeltjes op de schermen (alleen als ze zichtbaar zijn). */
+function drawPreviews(seconds) {
+  if (!birdOverlay.classList.contains('hidden')) {
+    for (const id of BIRD_ORDER) {
+      drawBirdPreview(choiceCanvases[id], id, seconds + BIRD_ORDER.indexOf(id) * 0.7);
+    }
+  }
+  if (!startOverlay.classList.contains('hidden')) {
+    drawBirdPreview(startBirdCanvas, profile.birdId, seconds);
+  }
 }
 
 function startGame() {
@@ -154,10 +298,10 @@ function endRound() {
   physics.clearColumns();
 
   const ratio = summary.asked > 0 ? summary.correct / summary.asked : 0;
-  let title = 'Goed gevlogen!';
-  if (ratio === 1) title = 'Foutloos! Wauw!';
-  else if (ratio >= 0.85) title = 'Super gevlogen!';
-  else if (ratio < 0.5) title = 'Knap volgehouden!';
+  let title = `Goed gevlogen, ${profile.name}!`;
+  if (ratio === 1) title = `Foutloos, ${profile.name}! Wauw!`;
+  else if (ratio >= 0.85) title = `Super gevlogen, ${profile.name}!`;
+  else if (ratio < 0.5) title = `Knap volgehouden, ${profile.name}!`;
 
   document.getElementById('roundTitle').textContent = title;
   document.getElementById('roundScore').textContent = `${summary.correct} van de ${summary.asked} goed`;
@@ -190,7 +334,13 @@ function askNextQuestion() {
   audio.playQuestion();
 }
 
-const PRAISE = ['Goed zo!', 'Top!', 'Netjes!', 'Klopt!', 'Lekker bezig!'];
+const PRAISE = ['Goed zo', 'Top', 'Netjes', 'Klopt', 'Lekker bezig'];
+
+/** Lof, soms met de naam van de vogel erin ("Goed zo, Pluim!"). */
+function praise() {
+  const word = PRAISE[Math.floor(Math.random() * PRAISE.length)];
+  return Math.random() < 0.4 ? `${word}, ${profile.name}!` : `${word}!`;
+}
 
 function handleAnswer(event) {
   const question = game.question;
@@ -207,12 +357,12 @@ function handleAnswer(event) {
     renderer.addShake(8);
     renderer.floatText(`+${result.feathers}`, bird.x, bird.y - 55, '#ffd23f', 42);
     audio.playTurbo();
-    message = 'Turbo-thermiek!';
+    message = Math.random() < 0.5 ? `Turbo-thermiek, ${profile.name}!` : 'Turbo-thermiek!';
   } else if (result.correct) {
     renderer.sparkle(event.x, event.y);
     renderer.floatText(`+${result.feathers}`, bird.x, bird.y - 50, '#ffffff', 34);
     audio.playCorrect();
-    message = PRAISE[Math.floor(Math.random() * PRAISE.length)];
+    message = praise();
     if (result.slow) {
       physics.applyWindDrop();
       audio.playWindDrop();
@@ -294,6 +444,7 @@ window.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('lostpointercapture', releasePointer);
 
 startOverlay.addEventListener('pointerdown', (event) => {
+  if (event.target.closest && event.target.closest('#birdBtn')) return;
   event.preventDefault();
   startGame();
 });
@@ -307,6 +458,8 @@ againButton.addEventListener('click', () => {
 // Toetsenbord (handig bij testen op de Surface)
 window.addEventListener('keydown', (event) => {
   if (event.code !== 'Space') return;
+  if (event.target === nameInput) return;               // spaties in de naam mogen gewoon
+  if (!birdOverlay.classList.contains('hidden')) return;
   event.preventDefault();
   if (game.state === 'start') {
     startGame();
@@ -335,7 +488,8 @@ document.addEventListener('visibilitychange', () => {
 
 // Geen scrollen, zoomen, contextmenu of dubbeltik-zoom
 document.addEventListener('touchmove', (event) => {
-  if (!event.target.closest || !event.target.closest('#tunePanel')) event.preventDefault();
+  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay');
+  if (!scrollable) event.preventDefault();
 }, { passive: false });
 document.addEventListener('gesturestart', (event) => event.preventDefault());
 document.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -479,6 +633,7 @@ function frame(now) {
     audio.silenceWind();
   }
 
+  drawPreviews(now / 1000);
   renderer.update(dt, physics);
   renderer.render(physics, {
     visible: game.state === 'playing',

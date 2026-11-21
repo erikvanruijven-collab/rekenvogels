@@ -61,7 +61,7 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;                 /* klikken gaan door naar het canvas... */
-  z-index: 10;
+  z-index: 30;                          /* knoppen ook bruikbaar boven start- en eindscherm */
 }
 
 #ui > * {
@@ -242,6 +242,190 @@ body {
   font-weight: bold;
   box-shadow: 0 4px 0 #d9a400;
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ---------- Vogel op het startscherm ---------- */
+.start-bird {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: -4px 0 10px;
+}
+
+#startBirdCanvas {
+  width: 130px;
+  height: 95px;
+}
+
+.start-bird-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.start-greeting {
+  margin: 0;
+  font-size: clamp(22px, 4vh, 30px);
+  font-weight: bold;
+  color: #2a3a55;
+}
+
+.small-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: #e6eef7;
+  color: #2a3a55;
+  font: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* ---------- Vogel kiezen ---------- */
+#birdOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 60, 100, 0.35);
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+/* Tijdens typen: kaart naar boven, zodat het toetsenbord niets afdekt */
+#birdOverlay.typing {
+  align-items: flex-start;
+  padding-top: 12px;
+}
+
+#birdOverlay.typing .bird-choices {
+  display: none;
+}
+
+.bird-card {
+  animation: none;
+  max-width: min(720px, 94vw);
+  padding: 22px 28px 24px;
+}
+
+.bird-card h1 {
+  font-size: clamp(30px, 5.5vh, 46px);
+  margin-bottom: 14px;
+}
+
+.bird-choices {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.bird-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 190px;
+  padding: 8px 8px 12px;
+  border: 4px solid transparent;
+  border-radius: 20px;
+  background: #eef5fc;
+  font: inherit;
+  color: #2a3a55;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.bird-choice canvas {
+  width: 160px;
+  height: 117px;
+}
+
+.bird-choice strong {
+  font-size: 20px;
+}
+
+.bird-choice small {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.bird-choice.selected {
+  border-color: #ffc928;
+  background: #fff6d6;
+  transform: scale(1.04);
+}
+
+.name-label {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.name-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+#nameInput {
+  width: min(320px, 60vw);
+  height: 54px;
+  padding: 0 16px;
+  border: 3px solid #b9d3ec;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #21324f;
+  font: inherit;
+  font-size: 24px;                      /* 16px of meer: anders zoomt de iPad in */
+  font-weight: bold;
+  text-align: center;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+  outline: none;
+}
+
+#nameInput:focus {
+  border-color: #2f7fd0;
+}
+
+.dice-btn {
+  width: 54px;
+  height: 54px;
+  border: none;
+  border-radius: 16px;
+  background: #e6eef7;
+  font-size: 28px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dice-btn:active,
+.bird-choice:active,
+.small-btn:active {
+  transform: scale(0.94);
+}
+
+.bird-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.bird-actions .tune-btn {
+  flex: 0 0 auto;
+  width: 120px;
+  height: 48px;
 }
 
 .version-label {

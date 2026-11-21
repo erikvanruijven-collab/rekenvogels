@@ -40,6 +40,13 @@
     <div class="start-card">
       <h1>Rekenvogels</h1>
       <p class="start-sub">Wereld 1 · De Wolkenvallei · tafels van 1, 2, 5 en 10</p>
+      <div class="start-bird">
+        <canvas id="startBirdCanvas" width="260" height="190" aria-hidden="true"></canvas>
+        <div class="start-bird-text">
+          <p id="startGreeting" class="start-greeting">Hoi!</p>
+          <button id="birdBtn" class="small-btn" type="button">🪶 Mijn vogel</button>
+        </div>
+      </div>
       <div class="start-how">
         <div><span class="how-icon">👇</span> Houd vast = duiken</div>
         <div><span class="how-icon">☁️</span> Loslaten = zweven</div>
@@ -49,6 +56,24 @@
       <p class="start-feathers">Jouw veren: <strong id="startFeathers">0</strong> 🪶</p>
       <div class="start-tap">Tik om te vliegen!</div>
       <p id="versionLabel" class="version-label"></p>
+    </div>
+  </div>
+
+  <!-- Vogel kiezen en naam geven -->
+  <div id="birdOverlay" class="hidden">
+    <div class="start-card bird-card">
+      <h1 id="birdTitle">Kies jouw vogel!</h1>
+      <div id="birdChoices" class="bird-choices"></div>
+      <label class="name-label" for="nameInput">Hoe heet jouw vogel?</label>
+      <div class="name-row">
+        <input id="nameInput" type="text" maxlength="14" autocomplete="off" autocorrect="off"
+               autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Bijv. Pluim">
+        <button id="diceBtn" class="dice-btn" type="button" aria-label="Verzin een naam">🎲</button>
+      </div>
+      <div class="bird-actions">
+        <button id="birdCancel" class="tune-btn" type="button">Terug</button>
+        <button id="birdDone" class="start-tap" type="button">Klaar!</button>
+      </div>
     </div>
   </div>
 
