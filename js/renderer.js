@@ -85,13 +85,46 @@ export class Renderer {
     this.scale = this.canvas.height / this.height;
     this.viewWidth = this.canvas.width / this.scale;
 
+    this.buildSkyGradient();
+    return this.viewWidth;
+  }
+
+  buildSkyGradient() {
     const sky = this.ctx.createLinearGradient(0, 0, 0, this.height);
     sky.addColorStop(0, this.preset.sky[0]);
     sky.addColorStop(0.55, this.preset.sky[1]);
     sky.addColorStop(1, this.preset.sky[2]);
     this.skyGradient = sky;
+  }
 
-    return this.viewWidth;
+  /** Wisselt naar de kleuren van een andere wereld. */
+  setWorld(preset) {
+    this.preset = preset;
+    this.buildSkyGradient();
+  }
+
+  /**
+   * Laat een andere module (bijv. de Gouden Duik) zelf tekenen, met
+   * dezelfde schaal en screen-shake als de gewone game.
+   */
+  renderCustom(drawFn) {
+    const ctx = this.ctx;
+    const s = this.scale;
+    let shakeX = 0;
+    let shakeY = 0;
+    if (this.shakeAmount > 0) {
+      shakeX = (Math.random() - 0.5) * 2 * this.shakeAmount;
+      shakeY = (Math.random() - 0.5) * 2 * this.shakeAmount;
+    }
+    ctx.setTransform(s, 0, 0, s, shakeX * s, shakeY * s);
+    drawFn(ctx, this.viewWidth, this.height);
+  }
+
+  /** Alleen de screen-shake laten uitdempen (tijdens de Gouden Duik). */
+  updateShake(dt) {
+    this.time += dt;
+    this.shakeAmount *= Math.exp(-dt * 9);
+    if (this.shakeAmount < 0.05) this.shakeAmount = 0;
   }
 
   createCloudLayers() {
@@ -892,10 +925,24 @@ export class Renderer {
       }
     }
 
+    // ---------- Wereldnaam bij de start ----------
+    if (hud.worldTitleAlpha > 0 && hud.worldTitle) {
+      ctx.globalAlpha = hud.worldTitleAlpha;
+      ctx.font = `bold 44px ${font}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = 'rgba(30, 45, 70, 0.55)';
+      ctx.strokeText(hud.worldTitle, this.viewWidth / 2, this.height * 0.4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(hud.worldTitle, this.viewWidth / 2, this.height * 0.4);
+      ctx.globalAlpha = 1;
+    }
+
     // ---------- Uitleg in de eerste seconden ----------
     if (hud.hintAlpha > 0) {
       ctx.globalAlpha = hud.hintAlpha;
-      const text = 'Vlieg door de ring met het goede antwoord!';
+      const text = hud.hintText || 'Vlieg door de ring met het goede antwoord!';
       ctx.font = `bold 26px ${font}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

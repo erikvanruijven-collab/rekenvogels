@@ -124,6 +124,20 @@ export class MathEngine {
     return this.progress.feathers;
   }
 
+  /** Extra veren, bijv. uit de Gouden Duik. */
+  addFeathers(amount) {
+    this.progress.feathers += amount;
+    this.saveProgress();
+  }
+
+  /** Na "Nieuw spel": alles opnieuw inlezen (is dan leeg). */
+  reloadProgress() {
+    this.progress = this.loadProgress();
+    this.round = null;
+    this.repeatQueue = [];
+    this.recentKeys = [];
+  }
+
   // -------------------------------------------------------------------
   // Vlucht (ronde)
   // -------------------------------------------------------------------

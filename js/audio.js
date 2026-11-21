@@ -325,6 +325,37 @@ export class AudioEngine {
     });
   }
 
+  // -------------------------------------------------------------------
+  // Stap 3a: Gouden Duik en werelden
+  // -------------------------------------------------------------------
+
+  /** Veer gevangen: toon klimt mee met de reeks ("combo"). */
+  playCatch(combo = 1, gold = false) {
+    if (!this.ctx) return;
+    const scale = [523.3, 587.3, 659.3, 784.0, 880.0, 1046.5, 1174.7, 1318.5];
+    const frequency = scale[Math.min(scale.length - 1, combo - 1)] * (gold ? 1.5 : 1);
+    const now = this.ctx.currentTime + 0.005;
+    this.marimbaNote(frequency, now, gold ? 0.3 : 0.2);
+    if (gold) this.marimbaNote(frequency * 1.5, now + 0.06, 0.22);
+  }
+
+  /** Nieuwe wereld open: vrolijk loopje omhoog. */
+  playUnlock() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime + 0.3;
+    [523.3, 659.3, 784.0, 1046.5, 1318.5, 1568.0].forEach((frequency, index) => {
+      this.marimbaNote(frequency, now + index * 0.09, 0.28);
+    });
+  }
+
+  /** Wind bij de Gouden Duik: hard en hoog. */
+  setDiveWind(active) {
+    if (!this.ctx || !this.windGain) return;
+    const now = this.ctx.currentTime;
+    this.windGain.gain.setTargetAtTime(active ? 0.16 : 0, now, 0.2);
+    this.windFilter.frequency.setTargetAtTime(active ? 1300 : 500, now, 0.3);
+  }
+
   /** Zet geluid aan/uit en onthoud de keuze. Geeft de nieuwe toestand terug. */
   toggleMute() {
     this.setMuted(!this.muted);

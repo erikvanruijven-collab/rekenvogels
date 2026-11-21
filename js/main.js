@@ -1,19 +1,18 @@
 // =====================================================================
-// main.js — Gameloop, invoer, tuning-paneel en toestandsbeheer
+// main.js — Gameloop, invoer, schermen en toestandsbeheer
 // ---------------------------------------------------------------------
-// Toestanden:  'start'    -> demovlucht op de achtergrond, startscherm
-//                            (of het vogel-keuzescherm, eerste keer verplicht)
-//              'playing'  -> een vlucht van 20 sommen
+// Toestanden:  'start'    -> wereldkaart (of het vogel-keuzescherm, de
+//                            eerste keer verplicht), demovlucht erachter
+//              'playing'  -> een vlucht van 20 sommen in een wereld
+//              'dive'     -> Gouden Duik-tussenspel (15 s)
 //              'roundEnd' -> eindscherm met resultaten
-// Invoer:      pointerdown / pointerup (muis én touch), spatiebalk op
-//              de Surface als extra testknop.
+// Invoer:      pointerdown / pointerup / pointermove (muis én touch),
+//              spatiebalk en pijltjes op de Surface als extra testknoppen.
 // =====================================================================
 
 import {
   CONFIG,
   TUNING_PARAMS,
-  WORLD_PRESETS,
-  ACTIVE_WORLD,
   loadTuning,
   saveTuning,
   resetTuning,
@@ -26,43 +25,65 @@ import { AudioEngine } from './audio.js';
 import { Renderer } from './renderer.js';
 import { MathEngine } from './math.js';
 import { BIRDS, BIRD_ORDER, drawBirdPreview } from './birds.js';
-import { loadProfile, saveProfile, sanitizeName, randomName } from './progress.js';
+import {
+  loadProfile,
+  saveProfile,
+  sanitizeName,
+  randomName,
+  isWorldUnlocked,
+  bestResult,
+  recordWorldResult,
+  unlockAllWorlds,
+  resetGameProgress
+} from './progress.js';
+import { WORLDS, FIRST_WORLD, getWorld, nextWorld, tablesLabel } from './worlds/index.js';
+import { GoldenDive } from './minigames/gouden-duik.js';
 
 // ---------------------------------------------------------------------
 // Opzetten
 // ---------------------------------------------------------------------
 loadTuning();
 
-const canvas = document.getElementById('game');
-const startOverlay = document.getElementById('startOverlay');
-const startFeathers = document.getElementById('startFeathers');
-const roundOverlay = document.getElementById('roundOverlay');
-const againButton = document.getElementById('againBtn');
-const startGreeting = document.getElementById('startGreeting');
-const startBirdCanvas = document.getElementById('startBirdCanvas');
-const birdButton = document.getElementById('birdBtn');
-const birdOverlay = document.getElementById('birdOverlay');
-const birdTitle = document.getElementById('birdTitle');
-const birdChoices = document.getElementById('birdChoices');
-const nameInput = document.getElementById('nameInput');
-const diceButton = document.getElementById('diceBtn');
-const birdCancelButton = document.getElementById('birdCancel');
-const birdDoneButton = document.getElementById('birdDone');
-const muteButton = document.getElementById('muteBtn');
-const tuneButton = document.getElementById('tuneBtn');
-const tunePanel = document.getElementById('tunePanel');
-const tuneSliders = document.getElementById('tuneSliders');
-const tuneValues = document.getElementById('tuneValues');
-const tuneResetButton = document.getElementById('tuneReset');
-const tuneCloseButton = document.getElementById('tuneClose');
+const $ = (id) => document.getElementById(id);
 
-const world = WORLD_PRESETS[ACTIVE_WORLD];
-const physics = new FlightPhysics();
-const audio = new AudioEngine();
-const renderer = new Renderer(canvas, world);
-const math = new MathEngine();
+const canvas = $('game');
+const startOverlay = $('startOverlay');
+const startFeathers = $('startFeathers');
+const startGreeting = $('startGreeting');
+const startBirdCanvas = $('startBirdCanvas');
+const worldMap = $('worldMap');
+const mapMessage = $('mapMessage');
+const newGameButton = $('newGameBtn');
+const confirmOverlay = $('confirmOverlay');
+const roundOverlay = $('roundOverlay');
+const againButton = $('againBtn');
+const mapButton = $('mapBtn');
+const birdButton = $('birdBtn');
+const birdOverlay = $('birdOverlay');
+const birdTitle = $('birdTitle');
+const birdChoices = $('birdChoices');
+const nameInput = $('nameInput');
+const diceButton = $('diceBtn');
+const birdCancelButton = $('birdCancel');
+const birdDoneButton = $('birdDone');
+const muteButton = $('muteBtn');
+const tuneButton = $('tuneBtn');
+const tunePanel = $('tunePanel');
+const tuneSliders = $('tuneSliders');
+const tuneValues = $('tuneValues');
+const tuneResetButton = $('tuneReset');
+const tuneCloseButton = $('tuneClose');
+const unlockAllButton = $('unlockAllBtn');
 
 let profile = loadProfile();
+let currentWorld = getWorld(FIRST_WORLD);
+
+const physics = new FlightPhysics();
+const audio = new AudioEngine();
+const renderer = new Renderer(canvas, currentWorld.colors);
+const math = new MathEngine();
+const goldenDive = new GoldenDive();
+
 renderer.setBird(profile.birdId);
 
 const game = {
@@ -74,14 +95,25 @@ const game = {
   feedback: null,          // resultaat van het laatste antwoord (voor de banner)
   feedbackTime: 0,
   nextQuestionTimer: 0,
-  roundEndShownAt: 0
+  roundEndShownAt: 0,
+  pending: null            // resultaten van de vlucht, getoond na de Gouden Duik
 };
 
+// ---------------------------------------------------------------------
+// Invoer-toestand
+// ---------------------------------------------------------------------
 const activePointers = new Set();
 let spaceDown = false;
+let arrowLeft = false;
+let arrowRight = false;
+let pointerX = null;       // vingerpositie in logische pixels (voor de Gouden Duik)
 
 function isPressed() {
   return activePointers.size > 0 || spaceDown;
+}
+
+function toLogicalX(clientX) {
+  return (clientX / window.innerWidth) * renderer.viewWidth;
 }
 
 // ---------------------------------------------------------------------
@@ -90,6 +122,7 @@ function isPressed() {
 function handleResize() {
   const viewWidth = renderer.resize();
   physics.setViewWidth(viewWidth);
+  goldenDive.setViewWidth(viewWidth);
 }
 
 window.addEventListener('resize', handleResize);
@@ -128,14 +161,14 @@ function lockLandscape() {
 }
 
 // ---------------------------------------------------------------------
-// Toestanden
+// Startscherm met wereldkaart
 // ---------------------------------------------------------------------
 function enterStartState() {
   game.state = 'start';
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
   roundOverlay.classList.add('hidden');
-  document.getElementById('versionLabel').textContent = `versie ${CONFIG.version}`;
+  $('versionLabel').textContent = `versie ${CONFIG.version}`;
   if (profile.complete) {
     showStartScreen();
   } else {
@@ -146,9 +179,89 @@ function enterStartState() {
 function showStartScreen() {
   startFeathers.textContent = String(math.totalFeathers);
   startGreeting.textContent = `Hoi ${profile.name}!`;
+  mapMessage.innerHTML = '&nbsp;';
+  buildWorldMap();
   birdOverlay.classList.add('hidden');
+  roundOverlay.classList.add('hidden');
   startOverlay.classList.remove('hidden');
 }
+
+/** Drie sterren: verdiende sterren geel, de rest grijs. */
+function fillStars(element, stars) {
+  element.innerHTML = '';
+  for (let i = 0; i < 3; i += 1) {
+    const star = document.createElement('span');
+    star.className = i < stars ? 'star on' : 'star off';
+    star.textContent = '★';
+    element.appendChild(star);
+  }
+}
+
+function buildWorldMap() {
+  worldMap.innerHTML = '';
+  WORLDS.forEach((world, index) => {
+    const unlocked = isWorldUnlocked(world.id);
+    const best = bestResult(world.id);
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'world-card';
+    if (world.darkCard) card.classList.add('dark');
+    if (!unlocked) card.classList.add('locked');
+    card.style.background = `linear-gradient(${world.colors.sky[0]}, ${world.colors.sky[1]} 60%, ${world.colors.hillsFront})`;
+
+    const parts = [
+      ['world-number', `Wereld ${world.number}`],
+      ['world-icon', world.icon],
+      ['world-name', world.name],
+      ['world-tables', `tafels ${tablesLabel(world)}`],
+      ['world-stars', unlocked ? '' : '🔒']
+    ];
+    for (const [className, text] of parts) {
+      const span = document.createElement('span');
+      span.className = className;
+      span.textContent = text;
+      if (className === 'world-stars' && unlocked) fillStars(span, best ? best.stars : 0);
+      card.appendChild(span);
+    }
+
+    card.addEventListener('click', () => {
+      audio.unlock();
+      if (unlocked) {
+        startGame(world);
+      } else {
+        const previous = WORLDS[index - 1];
+        mapMessage.textContent = `🔒 Haal ${CONFIG.progression.unlockScore} van de 20 goed in ${previous.name} om deze wereld te openen!`;
+        card.classList.remove('shake');
+        void card.offsetWidth;   // animatie opnieuw starten
+        card.classList.add('shake');
+        audio.playWrong();
+      }
+    });
+    worldMap.appendChild(card);
+  });
+}
+
+// ---------------------------------------------------------------------
+// Nieuw spel
+// ---------------------------------------------------------------------
+newGameButton.addEventListener('click', () => {
+  confirmOverlay.classList.remove('hidden');
+});
+$('confirmNo').addEventListener('click', () => {
+  confirmOverlay.classList.add('hidden');
+});
+$('confirmYes').addEventListener('click', () => {
+  resetGameProgress();
+  math.reloadProgress();
+  currentWorld = getWorld(FIRST_WORLD);
+  renderer.setWorld(currentWorld.colors);
+  confirmOverlay.classList.add('hidden');
+  showStartScreen();
+  mapMessage.textContent = 'Nieuw spel! Begin in De Wolkenvallei.';
+  audio.unlock();
+  audio.playFanfare();
+});
 
 // ---------------------------------------------------------------------
 // Vogel kiezen en naam geven (Stap 4a)
@@ -268,7 +381,12 @@ function drawPreviews(seconds) {
   }
 }
 
-function startGame() {
+// ---------------------------------------------------------------------
+// Een vlucht starten en afronden
+// ---------------------------------------------------------------------
+function startGame(world = currentWorld) {
+  currentWorld = world;
+  renderer.setWorld(world.colors);
   audio.unlock();
   tryFullscreenLandscape();
   physics.reset();
@@ -278,9 +396,11 @@ function startGame() {
   game.columnId = -1;
   game.feedback = null;
   game.feedbackTime = 0;
-  game.nextQuestionTimer = CONFIG.math.firstQuestionDelay;
+  game.nextQuestionTimer = CONFIG.math.firstQuestionDelay + 0.6;
   game.playTime = 0;
+  game.pending = null;
   game.state = 'playing';
+  activePointers.clear();
   startOverlay.classList.add('hidden');
   roundOverlay.classList.add('hidden');
 }
@@ -289,13 +409,35 @@ function formatSeconds(value) {
   return `${value.toFixed(1).replace('.', ',')} s`;
 }
 
-function endRound() {
+/** Na de 20e som: resultaten opslaan en door naar de Gouden Duik. */
+function endFlight() {
   const summary = math.finishRound();
-  game.state = 'roundEnd';
+  const result = recordWorldResult(currentWorld.id, summary);
+  game.pending = { summary, result };
   game.question = null;
+  physics.clearColumns();
+  activePointers.clear();
+  pointerX = null;
+
+  game.state = 'dive';
+  goldenDive.start(renderer.viewWidth);
+  audio.setDiveWind(true);
+  audio.playFanfare();
+}
+
+/** Na de Gouden Duik: eindscherm tonen. */
+function finishDive(bonus) {
+  math.addFeathers(bonus);
+  audio.setDiveWind(false);
+  physics.reset();
+  physics.setViewWidth(renderer.viewWidth);
+  showRoundOverlay(game.pending.summary, game.pending.result, bonus);
+}
+
+function showRoundOverlay(summary, result, bonus) {
+  game.state = 'roundEnd';
   game.roundEndShownAt = performance.now();
   activePointers.clear();
-  physics.clearColumns();
 
   const ratio = summary.asked > 0 ? summary.correct / summary.asked : 0;
   let title = `Goed gevlogen, ${profile.name}!`;
@@ -303,14 +445,29 @@ function endRound() {
   else if (ratio >= 0.85) title = `Super gevlogen, ${profile.name}!`;
   else if (ratio < 0.5) title = `Knap volgehouden, ${profile.name}!`;
 
-  document.getElementById('roundTitle').textContent = title;
-  document.getElementById('roundScore').textContent = `${summary.correct} van de ${summary.asked} goed`;
-  document.getElementById('statTurbo').textContent = String(summary.turbo);
-  document.getElementById('statTime').textContent = summary.averageTime === null ? '–' : formatSeconds(summary.averageTime);
-  document.getElementById('statStreak').textContent = String(summary.bestStreak);
-  document.getElementById('statFeathers').textContent = `+${summary.feathers}`;
+  $('roundTitle').textContent = title;
+  fillStars($('roundStars'), result.stars);
+  $('roundScore').textContent = `${summary.correct} van de ${summary.asked} goed`;
+  $('statTurbo').textContent = String(summary.turbo);
+  $('statTime').textContent = summary.averageTime === null ? '–' : formatSeconds(summary.averageTime);
+  $('statStreak').textContent = String(summary.bestStreak);
+  $('statFeathers').textContent = `+${summary.feathers + bonus}`;
 
-  const practice = document.getElementById('roundPractice');
+  const unlockLine = $('roundUnlock');
+  const next = nextWorld(currentWorld.id);
+  if (result.unlockedWorld) {
+    unlockLine.textContent = `🔓 Nieuwe wereld open: ${result.unlockedWorld.icon} ${result.unlockedWorld.name}!`;
+    unlockLine.classList.remove('hidden', 'hint');
+    audio.playUnlock();
+  } else if (next && !isWorldUnlocked(next.id)) {
+    unlockLine.textContent = `Haal ${CONFIG.progression.unlockScore} goed om ${next.name} te openen.`;
+    unlockLine.classList.remove('hidden');
+    unlockLine.classList.add('hint');
+  } else {
+    unlockLine.classList.add('hidden');
+  }
+
+  const practice = $('roundPractice');
   if (summary.practice.length > 0) {
     practice.textContent = `Nog even oefenen: ${summary.practice.slice(0, 6).join('   ·   ')}`;
     practice.classList.remove('hidden');
@@ -319,8 +476,6 @@ function endRound() {
   }
 
   roundOverlay.classList.remove('hidden');
-  audio.silenceWind();
-  audio.playFanfare();
 }
 
 // ---------------------------------------------------------------------
@@ -401,7 +556,7 @@ function updateQuestions(dt) {
   if (game.nextQuestionTimer > 0 || physics.hasActiveColumn) return;
 
   if (math.roundFinished) {
-    endRound();
+    endFlight();
   } else {
     askNextQuestion();
   }
@@ -426,8 +581,9 @@ function questionForHud() {
 canvas.addEventListener('pointerdown', (event) => {
   event.preventDefault();
   audio.unlock();
-  if (game.state !== 'playing') return;
+  if (game.state !== 'playing' && game.state !== 'dive') return;
   activePointers.add(event.pointerId);
+  pointerX = toLogicalX(event.clientX);
   try {
     canvas.setPointerCapture(event.pointerId);
   } catch (error) {
@@ -435,60 +591,73 @@ canvas.addEventListener('pointerdown', (event) => {
   }
 });
 
+window.addEventListener('pointermove', (event) => {
+  if (activePointers.has(event.pointerId)) {
+    pointerX = toLogicalX(event.clientX);
+  }
+});
+
 function releasePointer(event) {
   activePointers.delete(event.pointerId);
+  if (activePointers.size === 0) pointerX = null;
 }
 
 window.addEventListener('pointerup', releasePointer);
 window.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('lostpointercapture', releasePointer);
 
-startOverlay.addEventListener('pointerdown', (event) => {
-  if (event.target.closest && event.target.closest('#birdBtn')) return;
-  event.preventDefault();
-  startGame();
-});
-
 againButton.addEventListener('click', () => {
   // Kleine wachttijd, zodat een tik die nog "doorloopt" niet meteen opnieuw start
   if (performance.now() - game.roundEndShownAt < 900) return;
-  startGame();
+  startGame(currentWorld);
+});
+mapButton.addEventListener('click', () => {
+  if (performance.now() - game.roundEndShownAt < 900) return;
+  enterStartState();
 });
 
 // Toetsenbord (handig bij testen op de Surface)
 window.addEventListener('keydown', (event) => {
-  if (event.code !== 'Space') return;
   if (event.target === nameInput) return;               // spaties in de naam mogen gewoon
+  if (event.code === 'ArrowLeft') arrowLeft = true;
+  if (event.code === 'ArrowRight') arrowRight = true;
+  if (event.code !== 'Space') return;
   if (!birdOverlay.classList.contains('hidden')) return;
+  if (!confirmOverlay.classList.contains('hidden')) return;
   event.preventDefault();
   if (game.state === 'start') {
-    startGame();
+    startGame(currentWorld);
     return;
   }
   if (game.state === 'roundEnd') {
-    if (performance.now() - game.roundEndShownAt > 900) startGame();
+    if (performance.now() - game.roundEndShownAt > 900) startGame(currentWorld);
     return;
   }
   spaceDown = true;
 });
 window.addEventListener('keyup', (event) => {
   if (event.code === 'Space') spaceDown = false;
+  if (event.code === 'ArrowLeft') arrowLeft = false;
+  if (event.code === 'ArrowRight') arrowRight = false;
 });
 
 // Alles loslaten als de app de focus verliest
-window.addEventListener('blur', () => {
+function releaseAll() {
   activePointers.clear();
   spaceDown = false;
-});
+  arrowLeft = false;
+  arrowRight = false;
+  pointerX = null;
+}
+window.addEventListener('blur', releaseAll);
 document.addEventListener('visibilitychange', () => {
-  activePointers.clear();
-  spaceDown = false;
+  releaseAll();
   game.lastFrame = performance.now();
 });
 
 // Geen scrollen, zoomen, contextmenu of dubbeltik-zoom
 document.addEventListener('touchmove', (event) => {
-  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay');
+  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card');
   if (!scrollable) event.preventDefault();
 }, { passive: false });
 document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -581,12 +750,17 @@ tuneResetButton.addEventListener('click', () => {
   resetTuning();
   syncSlidersFromConfig();
 });
+unlockAllButton.addEventListener('click', () => {
+  unlockAllWorlds();
+  if (game.state === 'start') buildWorldMap();
+  unlockAllButton.textContent = '🔓 Alle werelden zijn open';
+});
 tunePanel.addEventListener('pointerdown', (event) => event.stopPropagation());
 
 buildTuningPanel();
 
 // ---------------------------------------------------------------------
-// Events uit de physics vertalen naar beeld en geluid
+// Events vertalen naar beeld en geluid
 // ---------------------------------------------------------------------
 function handleEvents(events) {
   for (const event of events) {
@@ -595,12 +769,35 @@ function handleEvents(events) {
         handleAnswer(event);
         break;
       case 'release':
-        audio.playFlap(event.speedFactor);
+        audio.playFlap(event.speedFactor + (event.tap ? 0.6 : 0));
         break;
       case 'ground':
         renderer.dust(event.x, event.y, event.strength);
         renderer.addShake(3 + event.strength * 6);
         audio.playThud(event.strength);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+function handleDiveEvents(events) {
+  for (const event of events) {
+    switch (event.type) {
+      case 'diveStart':
+        audio.playTurbo();
+        break;
+      case 'catch':
+        audio.playCatch(event.combo, event.gold);
+        if (event.gold) renderer.addShake(4);
+        break;
+      case 'diveEnd':
+        audio.setDiveWind(false);
+        audio.playFanfare();
+        break;
+      case 'finished':
+        finishDive(event.bonus);
         break;
       default:
         break;
@@ -619,29 +816,52 @@ function frame(now) {
   if (dt > 0.05) dt = 0.05;
   if (dt <= 0) return;
 
+  drawPreviews(now / 1000);
+
+  // ---------- Gouden Duik ----------
+  if (game.state === 'dive') {
+    handleDiveEvents(goldenDive.update(dt, {
+      targetX: isPressed() ? pointerX : null,
+      left: arrowLeft,
+      right: arrowRight
+    }));
+    if (game.state === 'dive') {
+      renderer.updateShake(dt);
+      renderer.renderCustom((ctx) => goldenDive.draw(ctx, profile.birdId));
+      return;
+    }
+  }
+
+  // ---------- Vliegen ----------
   if (game.state === 'playing') {
     game.playTime += dt;
     physics.setDiving(isPressed());
     handleEvents(physics.update(dt));
     updateQuestions(dt);
-    audio.updateWind(physics.bird.diving, physics.speedFactor);
-  } else {
-    // Demovlucht achter start- en eindscherm: duiken boven het midden, zweven eronder
+    if (game.state === 'playing') {
+      audio.updateWind(physics.bird.diving, physics.speedFactor);
+    }
+  } else if (game.state !== 'dive') {
+    // Demovlucht achter de schermen: duiken boven het midden, zweven eronder
     const bird = physics.bird;
     physics.setDiving(bird.y < physics.height * 0.38 && bird.vy < 150);
     physics.update(dt);
     audio.silenceWind();
   }
 
-  drawPreviews(now / 1000);
+  const playing = game.state === 'playing';
+  const t = game.playTime;
   renderer.update(dt, physics);
   renderer.render(physics, {
-    visible: game.state === 'playing',
+    visible: playing,
     feathers: math.totalFeathers,
     questionNumber: math.round ? math.round.asked : 0,
     roundLength: CONFIG.math.roundLength,
-    question: game.state === 'playing' ? questionForHud() : null,
-    hintAlpha: game.state === 'playing' ? Math.max(0, Math.min(1, 7 - game.playTime)) : 0
+    question: playing ? questionForHud() : null,
+    worldTitle: `Wereld ${currentWorld.number} · ${currentWorld.name}`,
+    worldTitleAlpha: playing ? Math.max(0, Math.min(1, 2.6 - t)) : 0,
+    hintText: t < 4.5 ? currentWorld.intro : 'Tik kort = omhoog fladderen  ·  Houd vast = duiken',
+    hintAlpha: playing ? Math.max(0, Math.min(1, 9 - t)) : 0
   });
 }
 

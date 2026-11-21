@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------
 // Idee:  INGEDRUKT  -> vleugels in, extra zwaartekracht, valsnelheid
 //                      wordt omgezet in voorwaartse snelheid.
+//        KORTE TIK  -> fladderen: een flinke vleugelslag omhoog.
 //        LOSGELATEN -> vleugels uit, lift groeit met snelheid²; stijgen
 //                      kost weer snelheid. Zo "betaal" je hoogte met
 //                      de energie die je in de duik hebt opgebouwd.
@@ -41,6 +42,7 @@ export class FlightPhysics {
     this.height = CONFIG.world.logicalHeight;
     this.viewWidth = 1280;
     this.wantDive = false;
+    this.pressTime = 0;
     this.reset();
   }
 
@@ -192,13 +194,21 @@ export class FlightPhysics {
     // ---------- Overgang duiken <-> zweven ----------
     if (this.wantDive && !b.diving) {
       b.diving = true;
+      this.pressTime = 0;
       events.push({ type: 'diveStart' });
     } else if (!this.wantDive && b.diving) {
       b.diving = false;
       b.flapTime = 0.45;
       b.vy -= p.flapImpulse;
-      events.push({ type: 'release', speedFactor: b.speed / base });
+      // Korte tik = flinke vleugelslag omhoog (fladderen)
+      const tap = this.pressTime < p.tapMaxDuration;
+      if (tap) {
+        b.vy = Math.min(b.vy, 0) - p.tapFlapImpulse;
+        b.flapTime = 0.55;
+      }
+      events.push({ type: 'release', speedFactor: b.speed / base, tap });
     }
+    if (b.diving) this.pressTime += dt;
 
     // ---------- Krachten ----------
     if (b.diving) {

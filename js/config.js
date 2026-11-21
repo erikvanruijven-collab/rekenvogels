@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.4.1 · stap 4a',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.5.0 · stap 3a',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -32,6 +32,8 @@ export const CONFIG = {
     glideDamping: 1.6,       // luchtweerstand verticaal tijdens zweven
     diveDamping: 0.25,       // luchtweerstand verticaal tijdens duiken
     flapImpulse: 140,        // kleine opwaartse tik bij het loslaten (vleugelslag)
+    tapMaxDuration: 0.22,    // korter ingedrukt dan dit = een "tik" -> fladderen
+    tapFlapImpulse: 330,     // extra opwaartse kracht van een tik (zo kom je zonder trucjes bij de bovenste ring)
     minSpeedFactor: 0.65,    // ondergrens snelheid (x basissnelheid)
     maxSpeedFactor: 3.0,     // bovengrens snelheid (x basissnelheid)
     maxFallSpeed: 1100,      // maximale valsnelheid (px/s)
@@ -79,6 +81,28 @@ export const CONFIG = {
     windDropSink: 180        // extra daalsnelheid als de wind wegzakt (px/s)
   },
 
+  // ---------------------------------------------------------------
+  // Stap 3a — Werelden, sterren en het Gouden Duik-tussenspel
+  // ---------------------------------------------------------------
+  progression: {
+    unlockScore: 15,         // zoveel goed (van de 20) opent de volgende wereld
+    starScores: [10, 15, 18] // 1, 2 en 3 sterren (15 = 2 sterren = volgende wereld open)
+  },
+
+  goldenDive: {
+    duration: 15,            // seconden
+    introTime: 1.6,          // "Gouden Duik!" in beeld voor het begint
+    startFallSpeed: 480,     // hoe snel de veren omhoog komen aan het begin (px/s)
+    endFallSpeed: 900,       // ... en aan het eind
+    spawnInterval: 0.45,     // tijd tussen twee veren (s) — bewust minder veren dan een vlucht met sommen oplevert
+    goldChance: 0.1,         // kans op een gouden veer
+    featherValue: 1,
+    goldValue: 3,
+    catchRadius: 52,         // hoe ruim je een veer vangt (px)
+    birdFollow: 9,           // hoe snel de vogel je vinger volgt
+    shaftWidth: 0.72         // breedte van de koker (deel van het scherm)
+  },
+
   render: {
     maxDpr: 2,               // maximale pixeldichtheid (sneller op oudere tablets)
     speedLineThreshold: 1.35,// vanaf deze snelheidsfactor verschijnen snelheidsstrepen
@@ -93,7 +117,8 @@ export const CONFIG = {
     tuning: 'rekenvogels.tuning.v1',
     muted: 'rekenvogels.muted.v1',
     progress: 'rekenvogels.progress.v1',
-    profile: 'rekenvogels.profile.v1'
+    profile: 'rekenvogels.profile.v1',
+    worlds: 'rekenvogels.worlds.v1'
   }
 };
 
