@@ -86,6 +86,15 @@ const goldenDive = new GoldenDive();
 
 renderer.setBird(profile.birdId);
 
+let currentEffects = null;   // wereld-effecten (bijv. storm) tijdens een vlucht
+
+function stopEffects() {
+  if (currentEffects && currentEffects.dispose) currentEffects.dispose();
+  currentEffects = null;
+  renderer.setEffects(null, 'normal');
+  physics.gustForce = 0;
+}
+
 const game = {
   state: 'start',
   playTime: 0,
@@ -164,6 +173,7 @@ function lockLandscape() {
 // Startscherm met wereldkaart
 // ---------------------------------------------------------------------
 function enterStartState() {
+  stopEffects();
   game.state = 'start';
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
@@ -392,6 +402,11 @@ function startGame(world = currentWorld) {
   physics.reset();
   physics.setViewWidth(renderer.viewWidth);
   math.startRound(world.tables);
+  stopEffects();
+  if (world.createEffects) {
+    currentEffects = world.createEffects({ physics, renderer, audio });
+  }
+  renderer.setEffects(currentEffects, world.ringStyle || 'normal');
   game.question = null;
   game.columnId = -1;
   game.feedback = null;
@@ -414,6 +429,7 @@ function endFlight() {
   const summary = math.finishRound();
   const result = recordWorldResult(currentWorld.id, summary);
   game.pending = { summary, result };
+  stopEffects();
   game.question = null;
   physics.clearColumns();
   activePointers.clear();
@@ -525,10 +541,20 @@ function handleAnswer(event) {
       message = 'Goed! Maar je twijfelde lang…';
     }
   } else {
-    physics.applyWrongWobble();
-    renderer.puff(event.x, event.y);
-    audio.playWrong();
-    message = result.answered ? 'Bijna! Deze komt zo terug.' : 'Kies een ring! Deze komt zo terug.';
+    // Werelden kunnen een eigen "fout"-effect hebben (bijv. onweersschok)
+    const handled = currentEffects && currentEffects.onWrongAnswer
+      ? currentEffects.onWrongAnswer(event)
+      : false;
+    if (!handled) {
+      physics.applyWrongWobble();
+      renderer.puff(event.x, event.y);
+      audio.playWrong();
+    }
+    if (handled && result.answered) {
+      message = 'Au, onweer! Deze komt zo terug.';
+    } else {
+      message = result.answered ? 'Bijna! Deze komt zo terug.' : 'Kies een ring! Deze komt zo terug.';
+    }
   }
 
   game.feedback = {
@@ -836,6 +862,7 @@ function frame(now) {
   if (game.state === 'playing') {
     game.playTime += dt;
     physics.setDiving(isPressed());
+    if (currentEffects) currentEffects.update(dt);
     handleEvents(physics.update(dt));
     updateQuestions(dt);
     if (game.state === 'playing') {

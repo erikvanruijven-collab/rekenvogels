@@ -16,6 +16,7 @@
 import { CONFIG } from './config.js';
 import { groundY } from './physics.js';
 import { drawBirdBody, DEFAULT_BIRD } from './birds.js';
+import { drawBolt } from './fx.js';
 
 const TWO_PI = Math.PI * 2;
 const CLOUD_WRAP = 2600; // breedte waarover wolken zich herhalen
@@ -64,6 +65,21 @@ export class Renderer {
 
     this.cloudLayers = this.createCloudLayers();
     this.birdId = DEFAULT_BIRD;
+    this.effects = null;        // wereld-effecten (regen, onweer...) of null
+    this.ringStyle = 'normal';  // 'normal' of 'storm' (ringen in onweerswolken)
+    this.bolts = [];            // bliksemschichten op de voorgrond
+  }
+
+  /** Wereld-specifieke effecten en ringstijl (zie worlds/). */
+  setEffects(effects, ringStyle = 'normal') {
+    this.effects = effects;
+    this.ringStyle = ringStyle;
+    this.bolts = [];
+  }
+
+  /** Bliksemschicht op de voorgrond (bijv. van wolk naar vogel). */
+  addBolt(points) {
+    this.bolts.push({ points, age: 0, life: 0.4 });
   }
 
   /** Welke vogel er getekend wordt (zie birds.js). */
@@ -328,6 +344,29 @@ export class Renderer {
     // Vuurspoor tijdens Turbo-thermiek
     if (bird.turboTime > 0) this.emitFire(bird);
 
+    // Rookpluimpjes uit een beroete vogel
+    if (bird.soot > CONFIG.storm.sootTime - 1.6 && Math.random() < dt * 14) {
+      this.particles.push({
+        type: 'dust',
+        x: bird.x + (Math.random() - 0.5) * 30,
+        y: bird.y - 10,
+        vx: -40 - Math.random() * 40,
+        vy: -40 - Math.random() * 40,
+        gravity: -40,
+        drag: 1.5,
+        life: 0.7 + Math.random() * 0.4,
+        age: 0,
+        size: 6 + Math.random() * 6,
+        rot: 0,
+        vr: 0,
+        color: 'rgba(70, 70, 78, 0.5)'
+      });
+    }
+
+    // Bliksemschichten
+    for (const bolt of this.bolts) bolt.age += dt;
+    this.bolts = this.bolts.filter((bolt) => bolt.age < bolt.life);
+
     // Zwevende teksten
     for (const t of this.floatTexts) {
       t.age += dt;
@@ -385,6 +424,7 @@ export class Renderer {
 
     const distance = physics.distance;
     this.drawSky();
+    if (this.effects && this.effects.drawSky) this.effects.drawSky(ctx, this.viewWidth, this.height);
     this.drawCloudLayer(this.cloudLayers[0], distance);
     this.drawMountains(distance);
     this.drawCloudLayer(this.cloudLayers[1], distance);
@@ -407,6 +447,8 @@ export class Renderer {
     }
 
     this.drawParticles();
+    for (const bolt of this.bolts) drawBolt(ctx, bolt.points, 1 - bolt.age / bolt.life);
+    if (this.effects && this.effects.drawFront) this.effects.drawFront(ctx, this.viewWidth, this.height);
     this.drawFloatTexts();
 
     // HUD zonder shake
@@ -623,6 +665,9 @@ export class Renderer {
     ctx.scale(grow, grow);
     ctx.lineCap = 'round';
 
+    // Onweerswolk om de ring: achterste puffen achter de ring
+    if (this.ringStyle === 'storm' && !front) this.drawStormCloud(ring, false);
+
     if (colors.glow) {
       ctx.strokeStyle = colors.glow;
       ctx.lineWidth = 26;
@@ -649,8 +694,68 @@ export class Renderer {
       ctx.beginPath();
       ctx.ellipse(-1.5, 0, rx - 2, ry - 4, 0, Math.PI * 0.75, Math.PI * 1.15);
       ctx.stroke();
+      // Onweerswolk: voorste puffen over de ring heen
+      if (this.ringStyle === 'storm') this.drawStormCloud(ring, true);
     }
     ctx.restore();
+  }
+
+  /**
+   * Grijze onweerswolk rond een ring (Stormachtig Schiereiland).
+   * Alle ringen krijgen dezelfde grijze wolk; alleen na een foute keuze
+   * wordt die wolk zwart. Zo verraadt de wolk het antwoord niet.
+   */
+  drawStormCloud(ring, front) {
+    const ctx = this.ctx;
+    if (!ring.puffs) {
+      // Vaste, licht willekeurige puffen per ring
+      ring.puffs = [];
+      const count = 11;
+      for (let i = 0; i < count; i += 1) {
+        const angle = (i / count) * TWO_PI + Math.random() * 0.25;
+        ring.puffs.push({
+          angle,
+          r: 17 + Math.random() * 9,
+          wobble: Math.random() * TWO_PI
+        });
+      }
+    }
+
+    let fill = '#a7afbd';
+    let shade = '#7f8898';
+    if (ring.state === 'wrong') {
+      fill = '#2b2d34';
+      shade = '#16171b';
+    } else if (ring.state === 'correct' || ring.state === 'reveal') {
+      fill = '#f2f5f9';
+      shade = '#cfd7e2';
+    }
+
+    const rx = ring.r * 0.42 + 24;
+    const ry = ring.r + 10;
+    for (const puff of ring.puffs) {
+      const px = Math.cos(puff.angle) * rx;
+      const isFront = px < 0;
+      if (isFront !== front) continue;
+      const py = Math.sin(puff.angle) * ry;
+      const r = puff.r + Math.sin(this.time * 2 + puff.wobble) * 1.5;
+      ctx.fillStyle = shade;
+      ctx.beginPath();
+      ctx.arc(px, py + 4, r, 0, TWO_PI);
+      ctx.fill();
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    // Flitsje in een zwarte wolk
+    if (ring.state === 'wrong' && ring.stateAge < 0.35 && front) {
+      ctx.fillStyle = `rgba(255, 245, 170, ${0.8 * (1 - ring.stateAge / 0.35)})`;
+      ctx.beginPath();
+      ctx.arc(0, -ry * 0.6, 26, 0, TWO_PI);
+      ctx.fill();
+    }
   }
 
   /** Het antwoord in het midden van de ring. */
@@ -744,6 +849,17 @@ export class Renderer {
       diving: bird.diving,
       turbo: bird.turboTime > 0
     });
+
+    // Roetvlekken na een onweersschok
+    if (bird.soot > 0) {
+      const alpha = Math.min(1, bird.soot / 1.2) * 0.8;
+      ctx.fillStyle = `rgba(28, 28, 34, ${alpha})`;
+      for (const [sx, sy, rx, ry] of [[-6, -6, 12, 7], [9, 7, 10, 6], [21, -14, 8, 6], [-19, 5, 7, 5], [2, -15, 6, 4]]) {
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, rx, ry, 0.3, 0, TWO_PI);
+        ctx.fill();
+      }
+    }
 
     ctx.restore();
   }

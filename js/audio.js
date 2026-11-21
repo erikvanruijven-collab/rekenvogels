@@ -356,6 +356,115 @@ export class AudioEngine {
     this.windFilter.frequency.setTargetAtTime(active ? 1300 : 500, now, 0.3);
   }
 
+  // -------------------------------------------------------------------
+  // Stap 3b: Stormachtig Schiereiland
+  // -------------------------------------------------------------------
+
+  /** Ruis door een filter met een volume-omhullende (hulpje voor stormgeluiden). */
+  noiseBurst({ when, type, frequency, frequencyEnd, q = 1, volume, attack, duration, offset = Math.random() * 1.5 }) {
+    const ctx = this.ctx;
+    const source = ctx.createBufferSource();
+    source.buffer = this.noiseBuffer;
+    source.loop = true;   // lange geluiden (donder) lopen niet tegen het einde van de ruisbuffer aan
+    const filter = ctx.createBiquadFilter();
+    filter.type = type;
+    filter.Q.value = q;
+    filter.frequency.setValueAtTime(frequency, when);
+    if (frequencyEnd) filter.frequency.exponentialRampToValueAtTime(frequencyEnd, when + duration);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(volume, when + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.master);
+    source.start(when, offset);
+    source.stop(when + duration + 0.05);
+  }
+
+  /** Zacht ruisende regen op de achtergrond (aan/uit). */
+  setRain(on) {
+    if (!this.ctx || !this.noiseBuffer) return;
+    const ctx = this.ctx;
+    if (!this.rainGain) {
+      const source = ctx.createBufferSource();
+      source.buffer = this.noiseBuffer;
+      source.loop = true;
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 2500;
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.frequency.value = 7000;
+      this.rainGain = ctx.createGain();
+      this.rainGain.gain.value = 0;
+      source.connect(highpass);
+      highpass.connect(lowpass);
+      lowpass.connect(this.rainGain);
+      this.rainGain.connect(this.master);
+      source.start(0, 0.7);
+    }
+    this.rainGain.gain.setTargetAtTime(on ? 0.035 : 0, ctx.currentTime, 0.4);
+  }
+
+  /** Donder in de verte: lage rommel, iets na de flits. */
+  playThunder(delay = 0.4) {
+    if (!this.ctx || !this.noiseBuffer) return;
+    const when = this.ctx.currentTime + delay;
+    this.noiseBurst({ when, type: 'lowpass', frequency: 260, frequencyEnd: 90, volume: 0.32, attack: 0.08, duration: 2.2 });
+    this.noiseBurst({ when, type: 'bandpass', frequency: 900, q: 0.8, volume: 0.08, attack: 0.01, duration: 0.25 });
+  }
+
+  /** Elektrische zap bij een onweersschok. */
+  playZap() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime + 0.01;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(1400, now);
+    osc.frequency.exponentialRampToValueAtTime(160, now + 0.3);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    osc.connect(gain);
+    gain.connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.4);
+    if (this.noiseBuffer) {
+      this.noiseBurst({ when: now, type: 'highpass', frequency: 2500, volume: 0.18, attack: 0.005, duration: 0.3 });
+    }
+  }
+
+  /** Komisch hoestje: "kuch-kuch". */
+  playCough() {
+    if (!this.ctx || !this.noiseBuffer) return;
+    const now = this.ctx.currentTime + 0.01;
+    for (const start of [0, 0.26]) {
+      this.noiseBurst({ when: now + start, type: 'bandpass', frequency: 650, frequencyEnd: 380, q: 2.2, volume: 0.32, attack: 0.012, duration: 0.16 });
+      const osc = this.ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(210, now + start);
+      osc.frequency.exponentialRampToValueAtTime(150, now + start + 0.14);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + 0.15);
+      osc.connect(gain);
+      gain.connect(this.master);
+      osc.start(now + start);
+      osc.stop(now + start + 0.2);
+    }
+  }
+
+  /** Aanzwellende windvlaag. */
+  playGust() {
+    if (!this.ctx || !this.noiseBuffer) return;
+    const now = this.ctx.currentTime + 0.01;
+    this.noiseBurst({ when: now, type: 'bandpass', frequency: 300, frequencyEnd: 1100, q: 0.9, volume: 0.17, attack: 0.6, duration: 1.8 });
+  }
+
   /** Zet geluid aan/uit en onthoud de keuze. Geeft de nieuwe toestand terug. */
   toggleMute() {
     this.setMuted(!this.muted);

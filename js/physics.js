@@ -65,10 +65,12 @@ export class FlightPhysics {
       boostTime: 0,              // zolang > 0 remt de snelheid niet af
       turboTime: 0,              // zolang > 0 brandt het vuurspoor
       wobble: 0,                 // schudden na een fout antwoord
+      soot: 0,                   // roet op de vogel na een onweersschok (s)
       radius: p.birdRadius
     };
     this.columns = [];
     this.columnId = 0;
+    this.gustForce = 0;          // windvlaag van de wereld (px/s², + = omlaag)
 
     // Baan-detectie (0 = boven, 1 = midden, 2 = onder)
     this.lane = 1;
@@ -119,6 +121,18 @@ export class FlightPhysics {
     b.boostTime = 0;
     b.turboTime = 0;
     b.vy += m.windDropSink;
+  }
+
+  /** Effect: onweersschok (Stormachtig Schiereiland, fout antwoord). */
+  applyShock() {
+    const st = CONFIG.storm;
+    const b = this.bird;
+    b.vy = Math.max(b.vy, 0) + st.shockSink;
+    b.speed *= st.shockSpeedFactor;
+    b.boostTime = 0;
+    b.turboTime = 0;
+    b.soot = st.sootTime;
+    b.wobble = 0.6;
   }
 
   /** Effect: klein schuddertje bij een fout antwoord. */
@@ -238,6 +252,10 @@ export class FlightPhysics {
     }
     b.turboTime = Math.max(0, b.turboTime - dt);
     b.wobble = Math.max(0, b.wobble - dt);
+    b.soot = Math.max(0, b.soot - dt);
+
+    // Windvlaag (alleen in werelden met wind)
+    if (this.gustForce !== 0) b.vy += this.gustForce * dt;
 
     b.speed = clamp(b.speed, base * p.minSpeedFactor, base * p.maxSpeedFactor);
     b.vy = clamp(b.vy, -p.maxRiseSpeed, p.maxFallSpeed);

@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.5.0 · stap 3a',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.6.0 · stap 3b',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -101,6 +101,23 @@ export const CONFIG = {
     catchRadius: 52,         // hoe ruim je een veer vangt (px)
     birdFollow: 9,           // hoe snel de vogel je vinger volgt
     shaftWidth: 0.72         // breedte van de koker (deel van het scherm)
+  },
+
+  // ---------------------------------------------------------------
+  // Stap 3b — Stormachtig Schiereiland
+  // ---------------------------------------------------------------
+  storm: {
+    gustForce: 320,          // kracht van een windvlaag (px/s², omhoog of omlaag)
+    gustDuration: 1.1,       // hoe lang een windvlaag duurt (s)
+    gustWarning: 0.8,        // zo lang van tevoren zie je de windvlaag aankomen (s)
+    gustIntervalMin: 4,      // tijd tussen windvlagen (s) ...
+    gustIntervalMax: 7,      // ... willekeurig tussen min en max
+    lightningMin: 6,         // onweer op de achtergrond, elke 6 tot 11 seconden
+    lightningMax: 11,
+    rainDrops: 140,          // aantal regendruppels in beeld
+    shockSink: 380,          // hoogteverlies bij een schok (px/s naar beneden)
+    shockSpeedFactor: 0.8,   // snelheid x deze factor bij een schok
+    sootTime: 4              // zo lang (s) zit er roet op de vogel
   },
 
   render: {
