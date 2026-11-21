@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------
 // Stap 4a: gekozen vogel en zelfgekozen naam.
 // Stap 3a: open werelden, beste resultaat per wereld, "Nieuw spel".
-// Later komen hier items en badges bij.
+// Stap 4b: gekochte en aangetrokken spullen uit het vogel-atelier.
+// Later komen hier de badges bij.
 // (De veren en de statistiek per som beheert math.js.)
 // Alles wordt bewaard in localStorage op het apparaat zelf.
 // =====================================================================
@@ -11,6 +12,7 @@
 import { CONFIG } from './config.js';
 import { BIRDS, DEFAULT_BIRD } from './birds.js';
 import { WORLDS, FIRST_WORLD, nextWorld } from './worlds/index.js';
+import { ITEMS, SLOTS, getItem } from './items.js';
 
 export const MAX_NAME_LENGTH = 14;
 
@@ -171,15 +173,92 @@ export function unlockAllWorlds() {
 }
 
 /**
- * Nieuw spel: werelden weer op slot, veren en sommen-statistiek gewist.
- * De gekozen vogel en naam blijven bewaard.
+ * Nieuw spel: werelden weer op slot; veren, sommen-statistiek en
+ * gekochte spullen gewist. De gekozen vogel en naam blijven bewaard.
  */
 export function resetGameProgress() {
   worldProgress = emptyWorldProgress();
+  items = emptyItems();
   try {
     localStorage.removeItem(CONFIG.storageKeys.worlds);
     localStorage.removeItem(CONFIG.storageKeys.progress);
+    localStorage.removeItem(CONFIG.storageKeys.items);
   } catch (error) {
     console.warn('Voortgang kon niet worden gewist:', error);
   }
+}
+
+// =====================================================================
+// Stap 4b — Vogel-atelier: gekochte en aangetrokken spullen
+// =====================================================================
+
+function emptyItems() {
+  return { owned: [], equipped: { hat: null, trail: null, turbo: null, start: null } };
+}
+
+let items = loadItems();
+
+function loadItems() {
+  try {
+    const raw = localStorage.getItem(CONFIG.storageKeys.items);
+    if (!raw) return emptyItems();
+    const data = JSON.parse(raw);
+    const validIds = ITEMS.map((item) => item.id);
+    const owned = Array.isArray(data.owned) ? data.owned.filter((id) => validIds.includes(id)) : [];
+    const equipped = emptyItems().equipped;
+    for (const slot of SLOTS) {
+      const id = data.equipped ? data.equipped[slot] : null;
+      const item = getItem(id);
+      if (item && item.slot === slot && owned.includes(id)) equipped[slot] = id;
+    }
+    return { owned, equipped };
+  } catch (error) {
+    console.warn('Spullen konden niet worden geladen:', error);
+    return emptyItems();
+  }
+}
+
+function saveItems() {
+  try {
+    localStorage.setItem(CONFIG.storageKeys.items, JSON.stringify(items));
+  } catch (error) {
+    console.warn('Spullen konden niet worden opgeslagen:', error);
+  }
+}
+
+export function ownsItem(id) {
+  return items.owned.includes(id);
+}
+
+export function isEquipped(id) {
+  const item = getItem(id);
+  return Boolean(item) && items.equipped[item.slot] === id;
+}
+
+/** Kopie van wat de vogel nu aanheeft: { hat, trail, turbo, start }. */
+export function getEquipment() {
+  return { ...items.equipped };
+}
+
+/** Kan dit gekocht worden (los van het aantal veren)? Jetpacks gaan op volgorde. */
+export function itemUnlocked(id) {
+  const item = getItem(id);
+  return Boolean(item) && (!item.requires || ownsItem(item.requires));
+}
+
+/** Na het betalen: in bezit nemen en meteen aantrekken. */
+export function addOwnedItem(id) {
+  const item = getItem(id);
+  if (!item) return;
+  if (!items.owned.includes(id)) items.owned.push(id);
+  items.equipped[item.slot] = id;
+  saveItems();
+}
+
+/** Aantrekken (vervangt wat er op die plek zat) of uittrekken. */
+export function setEquipped(id, on) {
+  const item = getItem(id);
+  if (!item || !ownsItem(id)) return;
+  items.equipped[item.slot] = on ? id : null;
+  saveItems();
 }

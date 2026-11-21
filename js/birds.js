@@ -313,7 +313,7 @@ function drawPenguin(ctx, pose) {
   drawJetFlame(ctx, -38, 2, flameLength, time + 0.37);
 
   // Jetpack (op de rug, achter het lijf)
-  roundedRect(ctx, -38, -24, 22, 34, 7, '#9aa5b1');
+  roundedRect(ctx, -38, -24, 22, 34, 7, pose.packColor || '#9aa5b1');   // kleur = gekochte jetpack (atelier)
   roundedRect(ctx, -35, -21, 7, 28, 3, '#c3ccd6');
   circle(ctx, -24, -16, 2.6, '#e04f4f');
   ctx.fillStyle = '#6b7682';

@@ -503,6 +503,67 @@ export class AudioEngine {
     }
   }
 
+  // -------------------------------------------------------------------
+  // Stap 4b: Vogel-atelier
+  // -------------------------------------------------------------------
+
+  /** Kassa! Iets gekocht. */
+  playBuy() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime + 0.01;
+    [1318.5, 1568.0, 2093.0].forEach((frequency, index) => {
+      this.marimbaNote(frequency, now + index * 0.06, 0.24);
+    });
+    this.marimbaNote(1046.5, now + 0.22, 0.3);
+  }
+
+  /** Pfrrt! (scheetwolkje bij een Turbo) */
+  playFart() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime + 0.01;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(110, now);
+    osc.frequency.exponentialRampToValueAtTime(70, now + 0.45);
+    const wobble = ctx.createOscillator();
+    wobble.frequency.value = 28;
+    const wobbleGain = ctx.createGain();
+    wobbleGain.gain.value = 25;
+    wobble.connect(wobbleGain);
+    wobbleGain.connect(osc.frequency);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.master);
+    osc.start(now);
+    wobble.start(now);
+    osc.stop(now + 0.55);
+    wobble.stop(now + 0.55);
+  }
+
+  /** Jetpack-lancering: brullende raket, groter bij hogere niveaus. */
+  playLaunch(tier = 1) {
+    if (!this.ctx || !this.noiseBuffer) return;
+    const now = this.ctx.currentTime + 0.01;
+    const length = 1 + tier * 0.5;
+    this.noiseBurst({ when: now, type: 'lowpass', frequency: 300, frequencyEnd: 1400 + tier * 400, volume: 0.22 + tier * 0.04, attack: 0.08, duration: length });
+    this.noiseBurst({ when: now, type: 'bandpass', frequency: 800, frequencyEnd: 3000, q: 1, volume: 0.1, attack: 0.3, duration: length * 0.8 });
+    if (tier === 3) {
+      // MEGA: knal + vrolijk loopje
+      this.noiseBurst({ when: now + 0.05, type: 'lowpass', frequency: 180, volume: 0.35, attack: 0.005, duration: 0.6 });
+      [784.0, 1046.5, 1318.5, 1568.0, 2093.0].forEach((frequency, index) => {
+        this.marimbaNote(frequency, now + 0.3 + index * 0.07, 0.22);
+      });
+    }
+  }
+
   /** Zet geluid aan/uit en onthoud de keuze. Geeft de nieuwe toestand terug. */
   toggleMute() {
     this.setMuted(!this.muted);

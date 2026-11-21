@@ -8,7 +8,7 @@
 // =====================================================================
 
 export const CONFIG = {
-  version: '0.8.0 · stap 3d',  // staat op het startscherm: zo zie je of een update is aangekomen
+  version: '0.9.0 · stap 4b',  // staat op het startscherm: zo zie je of een update is aangekomen
 
   world: {
     logicalHeight: 720,      // alle tekenwerk rekent in een virtuele hoogte van 720 px
@@ -142,11 +142,22 @@ export const CONFIG = {
     wrongLoss: -1,           // fout of geen ring
     streetLength: 8,         // zoveel voorsprong = gewonnen op een straatlengte
     pxPerLength: 26,         // afstand op het scherm per vleugellengte
-    karelStartOffset: 110,   // Karel begint net vóór de vogel (hij is eigenwijs)
+    karelStartOffset: 45,    // Karel begint net vóór de vogel (hij is eigenwijs); met een jetpack-voorsprong zit hij er meteen achter
     bubbleTime: 2.8,         // hoe lang een tekstballon blijft staan (s)
     idleMin: 7,              // tussendoor-praatjes elke 7 tot 12 seconden
     idleMax: 12
   },
+
+  // ---------------------------------------------------------------
+  // Stap 4b — Vogel-atelier: de vliegende start per jetpack
+  // (de eerste som komt pas na de lancering + een korte pauze)
+  // ---------------------------------------------------------------
+  launch: {
+    1: { boost: 250, duration: 2.0, rise: 380, headStart: 1 },   // Jetpack
+    2: { boost: 420, duration: 3.0, rise: 440, headStart: 2 },   // Turbo-jetpack
+    3: { boost: 650, duration: 4.0, rise: 500, headStart: 3 }    // Megaturbo-jetpack
+  },
+  launchQuestionPause: 1.5,  // extra wachttijd na de lancering voor de eerste som
 
   render: {
     maxDpr: 2,               // maximale pixeldichtheid (sneller op oudere tablets)
@@ -163,7 +174,8 @@ export const CONFIG = {
     muted: 'rekenvogels.muted.v1',
     progress: 'rekenvogels.progress.v1',
     profile: 'rekenvogels.profile.v1',
-    worlds: 'rekenvogels.worlds.v1'
+    worlds: 'rekenvogels.worlds.v1',
+    items: 'rekenvogels.items.v1'
   }
 };
 

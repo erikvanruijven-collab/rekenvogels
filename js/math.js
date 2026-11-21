@@ -173,6 +173,14 @@ export class MathEngine {
     return this.progress.feathers;
   }
 
+  /** Veren uitgeven in het atelier. Geeft false als er te weinig zijn. */
+  spendFeathers(amount) {
+    if (this.progress.feathers < amount) return false;
+    this.progress.feathers -= amount;
+    this.saveProgress();
+    return true;
+  }
+
   /** Extra veren, bijv. uit de Gouden Duik. */
   addFeathers(amount) {
     this.progress.feathers += amount;

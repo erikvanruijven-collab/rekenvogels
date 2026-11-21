@@ -15,7 +15,8 @@
 
 import { CONFIG } from './config.js';
 import { groundY } from './physics.js';
-import { drawBirdBody, drawHeadlamp, DEFAULT_BIRD } from './birds.js';
+import { drawHeadlamp, DEFAULT_BIRD } from './birds.js';
+import { drawBirdWithGear } from './items.js';
 import { drawBolt } from './fx.js';
 
 const TWO_PI = Math.PI * 2;
@@ -68,6 +69,58 @@ export class Renderer {
     this.effects = null;        // wereld-effecten (regen, onweer...) of null
     this.ringStyle = 'normal';  // 'normal' of 'storm' (ringen in onweerswolken)
     this.bolts = [];            // bliksemschichten op de voorgrond
+    this.equipment = { hat: null, trail: null, turbo: null, start: null };
+    this.rainbow = [];          // regenboogspoor (atelier)
+  }
+
+  /** Wat de vogel aanheeft (zie items.js). */
+  setEquipment(equipment) {
+    this.equipment = { ...equipment };
+    this.rainbow = [];
+  }
+
+  /** Pfrrt! Groen wolkje achter de vogel (scheetwolkje bij Turbo). */
+  fart(bird) {
+    for (let i = 0; i < 9; i += 1) {
+      this.particles.push({
+        type: 'dust',
+        x: bird.x - 34 + (Math.random() - 0.5) * 14,
+        y: bird.y + 6 + (Math.random() - 0.5) * 14,
+        vx: -80 - Math.random() * 90,
+        vy: (Math.random() - 0.5) * 50,
+        gravity: -25,
+        drag: 1.4,
+        life: 0.9 + Math.random() * 0.5,
+        age: 0,
+        size: 9 + Math.random() * 9,
+        rot: 0,
+        vr: 0,
+        color: 'rgba(150, 195, 90, 0.55)'
+      });
+    }
+  }
+
+  /** Sterrenregen bij de Megaturbo-lancering. */
+  starBurst(x, y) {
+    const colors = ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93', '#ffffff'];
+    for (let i = 0; i < 30; i += 1) {
+      const angle = Math.random() * TWO_PI;
+      const speed = 150 + Math.random() * 380;
+      this.particles.push({
+        type: 'star',
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        gravity: 200,
+        drag: 1.4,
+        life: 0.8 + Math.random() * 0.5,
+        age: 0,
+        size: 6 + Math.random() * 7,
+        rot: Math.random() * TWO_PI,
+        vr: (Math.random() - 0.5) * 10,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    }
   }
 
   /** Wereld-specifieke effecten en ringstijl (zie worlds/). */
@@ -361,6 +414,16 @@ export class Renderer {
         vr: 0,
         color: 'rgba(70, 70, 78, 0.5)'
       });
+    }
+
+    // Regenboogspoor (atelier): altijd zichtbaar
+    for (const point of this.rainbow) {
+      point.x -= worldSpeed * dt;
+      point.age += dt;
+    }
+    this.rainbow = this.rainbow.filter((point) => point.age < 0.9);
+    if (this.equipment.trail === 'rainbow') {
+      this.rainbow.push({ x: bird.x - 22, y: bird.y + 2, age: 0 });
     }
 
     // Bliksemschichten
@@ -823,8 +886,33 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  /** Regenboogspoor: zes gekleurde banen achter de vogel. */
+  drawRainbow() {
+    const ctx = this.ctx;
+    if (this.rainbow.length < 2) return;
+    const colors = ['#ff595e', '#ff924c', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93'];
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    colors.forEach((color, band) => {
+      const offset = (band - 2.5) * 4.2;
+      ctx.strokeStyle = color;
+      for (let i = 1; i < this.rainbow.length; i += 1) {
+        const a = this.rainbow[i - 1];
+        const b = this.rainbow[i];
+        ctx.globalAlpha = Math.max(0, 0.85 * (1 - b.age / 0.9));
+        ctx.lineWidth = 4.6;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y + offset);
+        ctx.lineTo(b.x, b.y + offset);
+        ctx.stroke();
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+
   drawTrail() {
     const ctx = this.ctx;
+    this.drawRainbow();
     if (this.trail.length < 2) return;
     ctx.lineCap = 'round';
     for (let i = 1; i < this.trail.length; i += 1) {
@@ -858,14 +946,14 @@ export class Renderer {
     const stretch = 1 + (1 - open) * 0.1;
     ctx.scale(stretch, 2 - stretch);
 
-    drawBirdBody(ctx, this.birdId, {
+    drawBirdWithGear(ctx, this.birdId, {
       open,
       flapOsc,
       lookY: Math.max(-2, Math.min(2, bird.vy / 300)),
       time: this.time,
       diving: bird.diving,
       turbo: bird.turboTime > 0
-    });
+    }, this.equipment);
 
     // Koplampje (De Nachtvlucht)
     if (this.effects && this.effects.headlamp) drawHeadlamp(ctx, this.birdId);

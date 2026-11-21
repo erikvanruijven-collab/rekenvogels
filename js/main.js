@@ -35,8 +35,15 @@ import {
   recordWorldResult,
   recordRaceResult,
   unlockAllWorlds,
-  resetGameProgress
+  resetGameProgress,
+  ownsItem,
+  isEquipped,
+  getEquipment,
+  itemUnlocked,
+  addOwnedItem,
+  setEquipped
 } from './progress.js';
+import { ITEMS, getItem, drawGearPreview } from './items.js';
 import { WORLDS, FIRST_WORLD, getWorld, nextWorld, tablesLabel } from './worlds/index.js';
 import { GoldenDive } from './minigames/gouden-duik.js';
 
@@ -75,6 +82,13 @@ const tuneValues = $('tuneValues');
 const tuneResetButton = $('tuneReset');
 const tuneCloseButton = $('tuneClose');
 const unlockAllButton = $('unlockAllBtn');
+const shopOverlay = $('shopOverlay');
+const shopGrid = $('shopGrid');
+const shopCanvas = $('shopCanvas');
+const shopFeathers = $('shopFeathers');
+const shopItemName = $('shopItemName');
+const shopItemDesc = $('shopItemDesc');
+const shopAction = $('shopAction');
 
 let profile = loadProfile();
 let currentWorld = getWorld(FIRST_WORLD);
@@ -86,6 +100,7 @@ const math = new MathEngine();
 const goldenDive = new GoldenDive();
 
 renderer.setBird(profile.birdId);
+renderer.setEquipment(getEquipment());
 
 let currentEffects = null;   // wereld-effecten (bijv. storm) tijdens een vlucht
 
@@ -267,6 +282,7 @@ $('confirmYes').addEventListener('click', () => {
   math.reloadProgress();
   currentWorld = getWorld(FIRST_WORLD);
   renderer.setWorld(currentWorld.colors);
+  renderer.setEquipment(getEquipment());
   confirmOverlay.classList.add('hidden');
   showStartScreen();
   mapMessage.textContent = 'Nieuw spel! Begin in De Wolkenvallei.';
@@ -388,9 +404,132 @@ function drawPreviews(seconds) {
     }
   }
   if (!startOverlay.classList.contains('hidden')) {
-    drawBirdPreview(startBirdCanvas, profile.birdId, seconds);
+    drawGearPreview(startBirdCanvas, profile.birdId, seconds, getEquipment());
+  }
+  if (!shopOverlay.classList.contains('hidden')) {
+    drawGearPreview(shopCanvas, profile.birdId, seconds, shopPreviewEquipment(), true);
   }
 }
+
+// ---------------------------------------------------------------------
+// Vogel-atelier (Stap 4b): passen, kopen, aan- en uittrekken
+// ---------------------------------------------------------------------
+let shopSelected = null;   // id van het item dat nu in de passpiegel staat
+
+/** Wat de passpiegel laat zien: je huidige spullen + het gekozen item. */
+function shopPreviewEquipment() {
+  const equipment = getEquipment();
+  const item = getItem(shopSelected);
+  if (item) equipment[item.slot] = item.id;
+  return equipment;
+}
+
+function openShop() {
+  shopSelected = null;
+  startOverlay.classList.add('hidden');
+  shopOverlay.classList.remove('hidden');
+  renderShop();
+}
+
+function closeShop() {
+  shopOverlay.classList.add('hidden');
+  renderer.setEquipment(getEquipment());
+  showStartScreen();
+}
+
+function itemStatus(item) {
+  if (isEquipped(item.id)) return { text: '✓ Aan', className: 'on' };
+  if (ownsItem(item.id)) return { text: 'In je kast', className: '' };
+  if (!itemUnlocked(item.id)) return { text: `🔒 Eerst: ${getItem(item.requires).name}`, className: '' };
+  return { text: `${item.price} 🪶`, className: '' };
+}
+
+function renderShop() {
+  shopFeathers.textContent = String(math.totalFeathers);
+  shopGrid.innerHTML = '';
+  for (const item of ITEMS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'shop-item';
+    if (item.id === shopSelected) button.classList.add('selected');
+    if (!ownsItem(item.id) && !itemUnlocked(item.id)) button.classList.add('locked');
+
+    const icon = document.createElement('span');
+    icon.className = 'item-icon';
+    icon.textContent = item.icon;
+    const text = document.createElement('span');
+    text.className = 'item-text';
+    const name = document.createElement('span');
+    name.className = 'item-name';
+    name.textContent = item.name;
+    const status = document.createElement('span');
+    const info = itemStatus(item);
+    status.className = `item-status ${info.className}`;
+    status.textContent = info.text;
+    text.appendChild(name);
+    text.appendChild(status);
+    button.appendChild(icon);
+    button.appendChild(text);
+
+    button.addEventListener('click', () => {
+      shopSelected = item.id;
+      audio.unlock();
+      audio.playRingTick();
+      renderShop();
+    });
+    shopGrid.appendChild(button);
+  }
+  renderShopAction();
+}
+
+function renderShopAction() {
+  const item = getItem(shopSelected);
+  shopAction.classList.remove('hidden', 'owned');
+  shopAction.disabled = false;
+  if (!item) {
+    shopItemName.textContent = 'Passpiegel';
+    shopItemDesc.textContent = 'Tik op iets om het te passen. Je vogel draait rond in de spiegel.';
+    shopAction.classList.add('hidden');
+    return;
+  }
+  shopItemName.textContent = `${item.icon} ${item.name}`;
+  shopItemDesc.textContent = item.description;
+
+  if (isEquipped(item.id)) {
+    shopAction.textContent = 'Uittrekken';
+    shopAction.classList.add('owned');
+  } else if (ownsItem(item.id)) {
+    shopAction.textContent = 'Aantrekken';
+    shopAction.classList.add('owned');
+  } else if (!itemUnlocked(item.id)) {
+    shopAction.textContent = `Koop eerst de ${getItem(item.requires).name}`;
+    shopAction.disabled = true;
+  } else if (math.totalFeathers < item.price) {
+    shopAction.textContent = `Nog ${item.price - math.totalFeathers} veren nodig`;
+    shopAction.disabled = true;
+  } else {
+    shopAction.textContent = `Kopen voor ${item.price} 🪶`;
+  }
+}
+
+shopAction.addEventListener('click', () => {
+  const item = getItem(shopSelected);
+  if (!item) return;
+  audio.unlock();
+  if (ownsItem(item.id)) {
+    setEquipped(item.id, !isEquipped(item.id));
+    audio.playCorrect();
+  } else if (itemUnlocked(item.id) && math.spendFeathers(item.price)) {
+    addOwnedItem(item.id);
+    audio.playBuy();
+  } else {
+    audio.playWrong();
+  }
+  renderer.setEquipment(getEquipment());
+  renderShop();
+});
+$('shopBtn').addEventListener('click', openShop);
+$('shopClose').addEventListener('click', closeShop);
 
 // ---------------------------------------------------------------------
 // Een vlucht starten en afronden
@@ -408,11 +547,26 @@ function startGame(world = currentWorld) {
     currentEffects = world.createEffects({ physics, renderer, audio });
   }
   renderer.setEffects(currentEffects, world.ringStyle || 'normal');
+  renderer.setEquipment(getEquipment());
   game.question = null;
   game.columnId = -1;
   game.feedback = null;
   game.feedbackTime = 0;
   game.nextQuestionTimer = CONFIG.math.firstQuestionDelay + 0.6;
+
+  // Vliegende start met een jetpack uit het atelier
+  const startItem = getItem(getEquipment().start);
+  if (startItem) {
+    const launch = CONFIG.launch[startItem.tier];
+    physics.applyLaunch(launch);
+    game.nextQuestionTimer += launch.duration + CONFIG.launchQuestionPause;  // bedenktijd blijft eerlijk
+    audio.playLaunch(startItem.tier);
+    const bird = physics.bird;
+    renderer.floatText(startItem.tier === 3 ? 'MEGA-START!' : 'Vliegende start!', bird.x + 90, bird.y - 70, '#ffd23f', 36);
+    renderer.addShake(4 + startItem.tier * 3);
+    if (startItem.tier === 3) renderer.starBurst(bird.x, bird.y);
+    if (currentEffects && currentEffects.giveHeadStart) currentEffects.giveHeadStart(launch.headStart);
+  }
   game.playTime = 0;
   game.pending = null;
   game.state = 'playing';
@@ -552,6 +706,10 @@ function handleAnswer(event) {
     physics.applyTurbo();
     renderer.burst(event.x, event.y);
     renderer.addShake(8);
+    if (getEquipment().turbo === 'fart') {
+      renderer.fart(physics.bird);
+      setTimeout(() => audio.playFart(), 120);
+    }
     renderer.floatText(`+${result.feathers}`, bird.x, bird.y - 55, '#ffd23f', 42);
     audio.playTurbo();
     message = Math.random() < 0.5 ? `Turbo-thermiek, ${profile.name}!` : 'Turbo-thermiek!';
@@ -678,6 +836,7 @@ window.addEventListener('keydown', (event) => {
   if (event.code !== 'Space') return;
   if (!birdOverlay.classList.contains('hidden')) return;
   if (!confirmOverlay.classList.contains('hidden')) return;
+  if (!shopOverlay.classList.contains('hidden')) return;
   event.preventDefault();
   if (game.state === 'start') {
     startGame(currentWorld);
@@ -711,7 +870,7 @@ document.addEventListener('visibilitychange', () => {
 
 // Geen scrollen, zoomen, contextmenu of dubbeltik-zoom
 document.addEventListener('touchmove', (event) => {
-  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card');
+  const scrollable = event.target.closest && event.target.closest('#tunePanel, #birdOverlay, .map-card, .shop-card');
   if (!scrollable) event.preventDefault();
 }, { passive: false });
 document.addEventListener('gesturestart', (event) => event.preventDefault());
@@ -881,7 +1040,7 @@ function frame(now) {
     }));
     if (game.state === 'dive') {
       renderer.updateShake(dt);
-      renderer.renderCustom((ctx) => goldenDive.draw(ctx, profile.birdId));
+      renderer.renderCustom((ctx) => goldenDive.draw(ctx, profile.birdId, getEquipment()));
       return;
     }
   }

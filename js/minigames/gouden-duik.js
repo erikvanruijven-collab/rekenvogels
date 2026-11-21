@@ -11,7 +11,7 @@
 // =====================================================================
 
 import { CONFIG } from '../config.js';
-import { drawBirdBody } from '../birds.js';
+import { drawBirdWithGear } from '../items.js';
 
 const TWO_PI = Math.PI * 2;
 const FONT = '"Trebuchet MS", "Segoe UI", system-ui, sans-serif';
@@ -227,7 +227,7 @@ export class GoldenDive {
     return side < 0 ? this.shaftLeft - 10 + wobble : this.shaftRight + 10 + wobble;
   }
 
-  draw(ctx, birdId) {
+  draw(ctx, birdId, equipment = null) {
     const W = this.viewWidth;
     const H = this.height;
 
@@ -301,14 +301,14 @@ export class GoldenDive {
     ctx.translate(this.x, this.birdY);
     ctx.rotate(Math.PI / 2 - lean);
     ctx.scale(1.08, 0.92);
-    drawBirdBody(ctx, birdId, {
+    drawBirdWithGear(ctx, birdId, {
       open: 0.08,
       flapOsc: 0,
       lookY: 2,
       time: this.time,
       diving: true,
       turbo: this.combo >= 5
-    });
+    }, equipment);
     ctx.restore();
 
     // Vonkjes

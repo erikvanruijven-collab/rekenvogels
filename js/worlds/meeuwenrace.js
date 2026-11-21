@@ -207,7 +207,7 @@ class RaceEffects {
 
     if (this.startDelay > 0) {
       this.startDelay -= dt;
-      if (this.startDelay <= 0) this.say(pick(LINES.start), true);
+      if (this.startDelay <= 0) this.say(this.startLine || pick(LINES.start), true);
       return;
     }
 
@@ -218,6 +218,15 @@ class RaceEffects {
       this.idleTimer -= dt;
       if (this.idleTimer <= 0) this.say(pick(LINES.idle), false);
     }
+  }
+
+  /** Vliegende start met een jetpack (atelier): voorsprong vanaf het begin. */
+  giveHeadStart(lengths) {
+    this.lead += lengths;
+    // Karel reageert pas na de wereldtitel (zie update)
+    this.startLine = lengths >= 3
+      ? 'WAT?! Een MEGA-jetpack?! Dat is niet eerlijk!'
+      : 'Hé! Een jetpack? Wacht maar, ik haal je wel in!';
   }
 
   /** Na elk antwoord: voorsprong aanpassen en Karel laten reageren. */

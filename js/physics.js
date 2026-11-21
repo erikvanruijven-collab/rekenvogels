@@ -66,6 +66,7 @@ export class FlightPhysics {
       turboTime: 0,              // zolang > 0 brandt het vuurspoor
       wobble: 0,                 // schudden na een fout antwoord
       soot: 0,                   // roet op de vogel na een onweersschok (s)
+      launchTime: 0,             // vliegende start met jetpack: zolang > 0 stuurt de jetpack
       radius: p.birdRadius
     };
     this.columns = [];
@@ -110,6 +111,21 @@ export class FlightPhysics {
     b.boostTime = m.turboDuration;
     b.turboTime = m.turboDuration;
     b.vy = Math.min(b.vy, 0) - 120;
+  }
+
+  /**
+   * Vliegende start met een jetpack (atelier): de vogel raast van laag
+   * naar boven met extra snelheid en vlammen.
+   */
+  applyLaunch(launch) {
+    const b = this.bird;
+    b.y = this.height * 0.72;
+    b.vy = -launch.rise;
+    b.speed += launch.boost;
+    b.boostTime = launch.duration;
+    b.turboTime = launch.duration;
+    b.launchTime = launch.duration;
+    b.flapTime = 0;
   }
 
   /** Effect: de wind zakt weg (te lang getwijfeld). */
@@ -225,7 +241,17 @@ export class FlightPhysics {
     if (b.diving) this.pressTime += dt;
 
     // ---------- Krachten ----------
-    if (b.diving) {
+    if (b.launchTime > 0) {
+      // Vliegende start: de jetpack houdt de vogel netjes in het midden
+      // terwijl de wereld voorbij raast. Daarna weer gewone snelheid.
+      b.launchTime -= dt;
+      const targetY = this.height * CONFIG.rings.rows[1];
+      b.vy += ((targetY - b.y) * 14 - b.vy * 6) * dt;
+      if (b.launchTime <= 0) {
+        b.speed = Math.min(b.speed, base * 1.15);
+        b.boostTime = 0;
+      }
+    } else if (b.diving) {
       b.vy += (p.gravity + p.diveForce) * dt;
       if (b.vy > 0) b.speed += p.diveGain * b.vy * dt;
       b.speed += p.diveAccel * dt;
